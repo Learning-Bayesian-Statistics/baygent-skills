@@ -37,8 +37,7 @@ These skills are **opinionated and workflow-first**. They don't just teach an ag
 
 Each skill is focused and lean. Rather than one monolithic skill that covers everything, we build specialized skills that do one thing well:
 
-- **bayesian-workflow** covers the fundamentals that every Bayesian analysis needs
-- Future skills will extend into specific domains without bloating the core
+- **bayesian-workflow** covers the fundamentals that every Bayesian analysis needs.
 
 ## About
 

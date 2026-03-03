@@ -18,7 +18,7 @@ Guides your coding agent through the full Bayesian workflow:
 8. **Model comparison** (LOO-CV, ELPD, stacking weights)
 9. **Reporting** with companion analysis notes and audience-adapted reports
 
-The skill enforces guardrails that agents won't apply on their own: 94% HDI (not 95% CI), mandatory calibration checks, non-centered parameterizations for hierarchical models, reproducible descriptive seeds, immediate save-to-disk after sampling, and xarray-first data manipulation.
+The skill enforces guardrails that agents won't apply on their own: 94% HDI, mandatory calibration checks, non-centered parameterizations for hierarchical models, reproducible descriptive seeds, immediate save-to-disk after sampling, and xarray-first data manipulation.
 
 ## Install
 
