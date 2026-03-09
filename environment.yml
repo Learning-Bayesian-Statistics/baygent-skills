@@ -1,0 +1,12 @@
+name: baygent
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pymc
+  - nutpie
+  - arviz
+  - preliz
+  - pip
+  - pip:
+    - arviz-stats>=1.0.0
