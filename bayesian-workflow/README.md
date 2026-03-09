@@ -48,7 +48,7 @@ cp -r /tmp/baygent-skills/bayesian-workflow/ ~/.config/agents/skills/bayesian-wo
 The skill recommends conda-forge / mamba-forge for PyMC and its dependencies:
 
 ```bash
-mamba install -c conda-forge pymc nutpie arviz preliz
+mamba install -c conda-forge pymc nutpie arviz arviz-stats preliz
 ```
 
 ## Example prompts

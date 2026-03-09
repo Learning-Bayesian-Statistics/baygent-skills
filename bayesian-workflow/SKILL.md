@@ -28,7 +28,7 @@ Every Bayesian analysis follows this sequence. Do not skip steps -- especially m
 3. **Implement in PyMC** — Write the model. Prefer PyMC 5+ syntax. Use the latest version possible.
 4. **Run prior predictive checks** — `pm.sample_prior_predictive()`. Verify priors produce plausible data ranges before fitting
 5. **Inference** — `pm.sample(nuts_sampler="nutpie")`. Always use nutpie for speed (the nutpie python package provides cutting-edge sampling). Don't hardcode the number of chains — let the sampler pick the best default for the platform.
-6. **Diagnose convergence** — See [references/diagnostics.md](references/diagnostics.md)
+6. **Diagnose convergence** — Use `arviz_stats.diagnose(idata)` as the first check (requires arviz-stats >= 1.0.0). It covers R-hat, ESS, divergences, tree depth, and E-BFMI in one call. See [references/diagnostics.md](references/diagnostics.md)
 7. **Criticize the model** — See [references/model-criticism.md](references/model-criticism.md)
 8. **Compare models** (if applicable) — See [references/model-comparison.md](references/model-comparison.md)
 9. **Report results** — See [references/reporting.md](references/reporting.md). When the user asks for a report or mentions a non-technical audience, generate a **standalone markdown report file** (not just code comments) using the template in reporting.md. Adapt the language to the audience — if they're new to Bayesian stats, include a glossary and plain-language explanations of key concepts.
@@ -39,7 +39,7 @@ Prefer conda-forge / mamba-forge to install PyMC and its dependencies — pip ca
 compiled backends (nutpie, JAX). Example:
 
 ```bash
-mamba install -c conda-forge pymc nutpie arviz preliz
+mamba install -c conda-forge pymc nutpie arviz arviz-stats preliz
 ```
 
 ## PyMC model template
@@ -87,7 +87,7 @@ with pm.Model(coords=coords) as model:
 - **Always run calibration checks** (PIT / coverage). Use ArviZ's `plot_ppc_pit` for this — it handles all data types (continuous, binary, count) correctly. See [references/model-criticism.md](references/model-criticism.md).
 - **Document every prior choice** with a brief justification in a code comment.
 - **Never report point estimates alone**. Always include credible intervals (default: 94% HDI).
-- **Use `az.summary()` and `az.plot_trace()`** as the first two diagnostics on every model.
+- **Use `arviz_stats.diagnose(idata)` as the first diagnostic on every model** (arviz-stats >= 1.0.0). It checks R-hat, ESS, divergences, tree depth saturation, and E-BFMI in one call. Follow up with `az.plot_trace(idata, kind="rank_vlines")` for visual inspection.
 - **Don't hardcode number of chains.** Let PyMC / nutpie choose the optimal default for the user's platform. Just call `pm.sample()` without specifying `chains`.
 - **Use reproducible, descriptive seeds.** Never use magic numbers like `42`. Instead, derive a seed from the analysis name: `RANDOM_SEED = sum(map(ord, "my-analysis-name"))`. Pass it to `pm.sample(random_seed=rng)`, `pm.sample_prior_predictive(random_seed=rng)`, and numpy via `rng = np.random.default_rng(RANDOM_SEED)`.
 - **Save InferenceData immediately after sampling** with `idata.to_netcdf("model_output.nc")`. Late crashes or kernel restarts can destroy valid MCMC results — save before any post-processing.

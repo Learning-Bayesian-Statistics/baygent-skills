@@ -20,9 +20,30 @@ import pymc as pm
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+# arviz_stats >= 1.0.0 provides diagnose() for one-call diagnostics
+try:
+    import arviz_stats as azs
+
+    HAS_DIAGNOSE = hasattr(azs, "diagnose")
+except ImportError:
+    HAS_DIAGNOSE = False
+
 
 def check_convergence(idata):
     """Run all convergence diagnostics. Returns structured results."""
+    # Use arviz_stats.diagnose() if available — it covers R-hat, ESS,
+    # divergences, tree depth saturation, and E-BFMI in one call.
+    if HAS_DIAGNOSE:
+        has_errors, diagnostics = azs.diagnose(
+            idata, return_diagnostics=True, show_diagnostics=True
+        )
+        return {
+            "all_ok": not has_errors,
+            "diagnostics": diagnostics,
+            "method": "arviz_stats.diagnose",
+        }
+
+    # Fallback for arviz-stats < 1.0.0
     summary = az.summary(idata)
     num_chains = idata.chains.size
 
@@ -63,15 +84,19 @@ def check_convergence(idata):
     results["all_ok"] = all(
         results[k]["ok"] for k in ["rhat", "ess_bulk", "ess_tail", "divergences"]
     )
+    results["method"] = "manual"
 
     return results
 
 
-def check_loo(idata, model_instance):
+def check_loo(idata, model=None):
     """Run LOO-CV and check Pareto k diagnostics."""
     try:
-        if "log_likelihood" not in idata.groups:
-            pm.compute_log_likelihood(idata, model=model_instance)
+        if "log_likelihood" not in idata.groups():
+            if model is not None:
+                pm.compute_log_likelihood(idata, model=model)
+            else:
+                return {"computed": False, "error": "No log_likelihood group and no model provided. Pass --model or call pm.compute_log_likelihood(idata, model=model) before saving."}
         loo = az.loo(idata, pointwise=True)
         pareto_k = loo.pareto_k.values
 
@@ -111,11 +136,11 @@ def check_posterior_predictive(idata):
     return results
 
 
-def generate_report(idata):
+def generate_report(idata, model=None):
     """Generate complete diagnostics report."""
     report = {
         "convergence": check_convergence(idata),
-        "loo": check_loo(idata),
+        "loo": check_loo(idata, model=model),
         "posterior_predictive": check_posterior_predictive(idata),
     }
 

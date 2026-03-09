@@ -17,27 +17,22 @@ Run this immediately after sampling. If any check fails, do NOT interpret result
 # you just ran this:
 # idata = pm.sample(nuts_sampler="nutpie", random_seed=rng)
 
-# 1. Summary table (R-hat + ESS at a glance)
-summary = az.summary(idata, round_to=3)
-print(summary)
+import arviz_stats as azs
 
-# 2. Check R-hat
-rhat_ok = (summary["r_hat"] <= 1.01).all()
-print(f"R-hat OK: {rhat_ok}")
+# 1. One-call diagnostics: R-hat, ESS, divergences, tree depth, E-BFMI
+# Prints a human-readable summary and returns True if any check failed.
+# Defaults already enforce our thresholds (rhat_max=1.01, ess=100*chains, bfmi>=0.3).
+has_errors = azs.diagnose(idata)
 
-# 3. Check ESS (bulk and tail) — threshold is 100 * number of chains
-num_chains = idata.posterior.sizes["chain"]
-ess_bulk_ok = (summary["ess_bulk"] >= 100 * num_chains).all()
-ess_tail_ok = (summary["ess_tail"] >= 100 * num_chains).all()
-print(f"ESS bulk OK: {ess_bulk_ok}, ESS tail OK: {ess_tail_ok}")
+# 2. If you need the detailed breakdown programmatically:
+has_errors, diagnostics = azs.diagnose(idata, return_diagnostics=True, show_diagnostics=False)
+# diagnostics contains: "divergent", "treedepth", "bfmi", "ess", "rhat"
 
-# 4. Check divergences
-n_div = idata.sample_stats["diverging"].sum().item()
-print(f"Divergences: {n_div}")
-
-# 5. Visual check
+# 3. Visual check
 az.plot_trace(idata, kind="rank_vlines")
 ```
+
+If `azs.diagnose` is not available (arviz-stats < 1.0.0), fall back to the manual checks below.
 
 ## R-hat (Gelman-Rubin)
 
@@ -132,27 +127,10 @@ az.plot_energy(idata)
 
 ## Automated diagnostics workflow
 
-Use the `diagnose_model.py` script for a complete automated check:
+The recommended approach is `arviz_stats.diagnose()` (see Quick diagnostic checklist above). It checks R-hat, ESS, divergences, tree depth saturation, and E-BFMI in one call — with sensible defaults that match our thresholds.
+
+For a script-based workflow, use `diagnose_model.py`:
 
 ```bash
 python scripts/diagnose_model.py --idata model_output.nc
-```
-
-Or inline:
-
-```python
-def run_diagnostics(idata):
-    """Run all convergence diagnostics. Returns dict of results."""
-    summary = az.summary(idata)
-    results = {
-        "rhat_max": float(summary["r_hat"].max()),
-        "rhat_ok": bool((summary["r_hat"] <= 1.01).all()),
-        "ess_bulk_min": int(summary["ess_bulk"].min()),
-        "ess_tail_min": int(summary["ess_tail"].min()),
-        "ess_ok": bool((summary["ess_bulk"] >= 100 * num_chains).all() and (summary["ess_tail"] >= 100 * num_chains).all()),
-        "n_divergences": int(idata.sample_stats["diverging"].sum()),
-        "divergences_ok": int(idata.sample_stats["diverging"].sum()) == 0,
-    }
-    results["all_ok"] = results["rhat_ok"] and results["ess_ok"] and results["divergences_ok"]
-    return results
 ```
