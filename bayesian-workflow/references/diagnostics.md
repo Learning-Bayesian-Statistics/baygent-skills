@@ -134,3 +134,23 @@ For a script-based workflow, use `diagnose_model.py`:
 ```bash
 python scripts/diagnose_model.py --idata model_output.nc
 ```
+
+If `arviz_stats.diagnose()` is not available, use this inline fallback:
+
+```python
+def run_diagnostics(idata):
+    """Run all convergence diagnostics. Returns dict of results."""
+    summary = az.summary(idata)
+    num_chains = idata.posterior.sizes["chain"]
+    results = {
+        "rhat_max": float(summary["r_hat"].max()),
+        "rhat_ok": bool((summary["r_hat"] <= 1.01).all()),
+        "ess_bulk_min": int(summary["ess_bulk"].min()),
+        "ess_tail_min": int(summary["ess_tail"].min()),
+        "ess_ok": bool((summary["ess_bulk"] >= 100 * num_chains).all() and (summary["ess_tail"] >= 100 * num_chains).all()),
+        "n_divergences": int(idata.sample_stats["diverging"].sum()),
+        "divergences_ok": int(idata.sample_stats["diverging"].sum()) == 0,
+    }
+    results["all_ok"] = results["rhat_ok"] and results["ess_ok"] and results["divergences_ok"]
+    return results
+```
