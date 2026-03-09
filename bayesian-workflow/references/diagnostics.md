@@ -135,7 +135,7 @@ For a script-based workflow, use `diagnose_model.py`:
 python scripts/diagnose_model.py --idata model_output.nc
 ```
 
-If `arviz_stats.diagnose()` is not available, use this inline fallback:
+Or inline (this last approach doesn't require `arviz_stats.diagnose()`):
 
 ```python
 def run_diagnostics(idata):
