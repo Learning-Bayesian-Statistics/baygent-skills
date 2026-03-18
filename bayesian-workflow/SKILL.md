@@ -161,4 +161,4 @@ These are battle-tested lessons that save hours of debugging:
 | Post. pred. misses data | Model misspecification | Add complexity (varying slopes, different likelihood, interaction terms) |
 | `log_likelihood` missing | nutpie doesn't auto-store it | Call `pm.compute_log_likelihood(idata, model=model)` after sampling |
 | Slow model | Large Deterministics or recompilation | Profile with `model.profile(model.logp())`, avoid large `Deterministic` arrays |
-| Slow to initialize / poor warmup | Bad starting point | Try `init="adapt_diag_grad"` in `pm.sample()`, or run `pymc_extras.fit_pathfinder()` first and pass its MAP estimates as `initvals` |
+| Slow to initialize / poor warmup | Bad starting point | Try `init="adapt_diag_grad"` in `pm.sample()`, or run `pmx.fit(method="pathfinder")` first (`import pymc_extras as pmx`) and pass its estimates as `initvals` |
