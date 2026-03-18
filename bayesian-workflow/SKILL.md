@@ -14,7 +14,7 @@ description: >
 license: MIT
 metadata:
   author: [Alexandre Andorra](https://alexandorra.github.io/)
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Bayesian Workflow
@@ -94,14 +94,31 @@ with pm.Model(coords=coords) as model:
 - **Use ArviZ for all plots and calibration.** Don't write custom plotting code when ArviZ already handles it — including for binary data, count data, and calibration. ArviZ developers have thought through edge cases so you don't have to.
 - **Prefer xarray over numpy for InferenceData operations.** `InferenceData` and `DataTree` objects are backed by xarray — use xarray's labeled indexing (`.sel()`, `.mean(dim=...)`, etc.) instead of converting to numpy arrays. This preserves dimension labels, avoids shape bugs, and makes code more readable. Fall back to numpy only when xarray can't do what you need.
 - **Always generate analysis notes alongside code.** When producing a model script, also produce a companion markdown file (`analysis_notes.md` or similar) that interprets the results — what the diagnostics mean, what the posteriors tell us, what the calibration plots show. Code without interpretation is incomplete.
+- **Always use the posterior mean (not median) for predictive probabilities.** The proper Bayesian predictive distribution averages over the posterior: `P(Y=k|x) = (1/S) Σ P(Y=k|x,θₛ)`. This is the mean, not the median. The median does not correspond to the posterior predictive distribution, can violate probability coherence (probabilities may not sum to 1), and biases calibration due to Jensen's inequality. In code: use `np.mean(probs, axis=sample_axis)`, never `np.median(...)`.
+- **Use `pm.set_data()` + `pm.sample_posterior_predictive()` for out-of-sample predictions.** Don't manually extract posterior samples and recompute predictions — let PyMC propagate uncertainty properly. Define predictors as `pm.Data(...)` during model building, then swap in new data:
+
+```python
+# After fitting the model:
+with model:
+    pm.set_data({"X": X_new, "group_idx": group_idx_new})
+    oos_preds = pm.sample_posterior_predictive(idata, predictions=True, random_seed=rng)
+```
+
+- **Check model identifiability before interpreting components.** If two model components always appear together in the likelihood (e.g., a league intercept and a home advantage term when every observation is from home perspective), their individual posteriors reflect prior assumptions, not data signal — only their sum is identified. Use `az.plot_pair()` to check for strong posterior correlations between components. If correlation is near ±1, the components are not separately identifiable — either merge them or restructure the data.
 
 ## Common model families
 
 | Problem | Likelihood | Typical priors | Reference |
 |---|---|---|---|
 | Continuous outcome | Normal / StudentT | Normal, Gamma avoiding 0 for positive-constrained parameters | [references/priors.md](references/priors.md) |
-| Binary outcome | Bernoulli or Binomial if aggregted, with logit inverse-link | Normal(0, 1.5) on coeffs | [references/priors.md](references/priors.md) |
+| Binary outcome | Bernoulli or Binomial if aggregated, with logit inverse-link | Normal(0, 1.5) on coeffs | [references/priors.md](references/priors.md) |
 | Count data | Poisson / NegBinomial | Gamma on rate, avoiding 0 | [references/priors.md](references/priors.md) |
+| Count data with excess zeros | ZeroInflatedPoisson / ZeroInflatedNegBinomial | Gamma on rate; Beta or Normal+logit on zero-inflation prob | [references/priors.md](references/priors.md) |
+| Positive count data (no zeros) | Hurdle Poisson / Hurdle NegBinomial | Separate zero-gate (Bernoulli) and count (Truncated) components | [references/priors.md](references/priors.md) |
+| Ordinal outcome | OrderedLogistic (cumulative link) | Normal on coeffs; Normal with ordered transform on cutpoints | [references/priors.md](references/priors.md) |
+| Censored data (survival, limits of detection) | `pm.Censored(dist, lower, upper)` | Same as uncensored, applied to underlying distribution | [references/priors.md](references/priors.md) |
+| Truncated data | `pm.Truncated(dist, lower, upper)` | Same as underlying distribution | [references/priors.md](references/priors.md) |
+| High-dimensional / sparse regression | Normal / StudentT with sparsity prior on coefficients | Regularized Horseshoe or R2-D2 on coeffs | [references/priors.md](references/priors.md) |
 | Hierarchical / multilevel | Varies | See partial pooling pattern | [references/hierarchical.md](references/hierarchical.md) |
 | Time series | state space models / Gaussian Processes | Problem-specific | [references/priors.md](references/priors.md) |
 
@@ -130,6 +147,8 @@ These are battle-tested lessons that save hours of debugging:
 - **Flat priors on scale parameters** (`HalfCauchy`, `HalfFlat`) cause funnels in hierarchical models. Use `Gamma(2, ...)` or `Exponential` — these avoid the near-zero region that creates sampling problems. If there's no group-level variation to detect, you don't need the hierarchy.
 - **Python conditionals in models** (`if x > 0`) don't work inside PyMC. Use `pm.math.switch` or `pytensor.tensor.where` instead.
 - **Forgetting to standardize predictors** makes shared priors inappropriate and slows sampling. Always standardize before fitting, then back-transform for interpretation.
+- **Horseshoe priors create a double-funnel geometry** that standard NUTS can struggle with. Always use the **regularized (Finnish) horseshoe** (Piironen & Vehtari, 2017), which adds a slab component that smooths the geometry. Set `target_accept=0.95` or higher. If you see divergences with a horseshoe model, this is almost certainly the cause.
+- **`np.median` on posterior predictive probabilities is a silent bug.** It does not produce the Bayesian predictive distribution and can yield probabilities that don't sum to 1 across categories. Always use `np.mean` over the posterior samples dimension.
 
 ## When things go wrong
 
@@ -142,3 +161,4 @@ These are battle-tested lessons that save hours of debugging:
 | Post. pred. misses data | Model misspecification | Add complexity (varying slopes, different likelihood, interaction terms) |
 | `log_likelihood` missing | nutpie doesn't auto-store it | Call `pm.compute_log_likelihood(idata, model=model)` after sampling |
 | Slow model | Large Deterministics or recompilation | Profile with `model.profile(model.logp())`, avoid large `Deterministic` arrays |
+| Slow to initialize / poor warmup | Bad starting point | Try `init="adapt_diag_grad"` in `pm.sample()`, or run `pymc_extras.fit_pathfinder()` first and pass its MAP estimates as `initvals` |

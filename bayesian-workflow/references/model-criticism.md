@@ -150,6 +150,106 @@ for j, name in enumerate(predictor_names):
 
 Look for: trends (missed nonlinearity), fans (heteroscedasticity), clusters (missing grouping variable).
 
+## Classification and ordinal model evaluation
+
+Standard PPC and calibration checks apply to classification models — **always run `plot_ppc_pit` first** (see Calibration assessment above). The metrics below supplement PPC-PIT with classification-specific numeric summaries. Note: `sklearn.metrics.brier_score_loss` exists but is binary-only; there is no standard package for multiclass ECE or categorical RPS, so we provide lightweight helpers:
+
+### Metrics for categorical/ordinal outcomes
+
+```python
+def expected_calibration_error(pred_probs, actuals, n_bins=10):
+    """Confidence-based ECE: are predicted probabilities well-calibrated?"""
+    # Standard ECE: bin on the model's confidence (max predicted probability),
+    # compare to accuracy within each bin.
+    confidences = np.max(pred_probs, axis=1)
+    predictions = np.argmax(pred_probs, axis=1)
+    accuracies = (predictions == actuals).astype(float)
+    bin_edges = np.linspace(0, 1, n_bins + 1)
+    ece = 0
+    for i in range(n_bins):
+        in_bin = (confidences >= bin_edges[i]) & (confidences < bin_edges[i + 1])
+        if in_bin.sum() > 0:
+            avg_confidence = confidences[in_bin].mean()
+            avg_accuracy = accuracies[in_bin].mean()
+            ece += np.abs(avg_confidence - avg_accuracy) * in_bin.sum()
+    return ece / len(actuals)
+
+def ranked_probability_score(pred_probs, actuals, n_classes):
+    """RPS: gold standard for ordinal outcomes. Penalizes being 'far off' more than Brier."""
+    rps = 0
+    for i, actual in enumerate(actuals):
+        pred_cum = np.cumsum(pred_probs[i])
+        actual_cum = np.zeros(n_classes)
+        actual_cum[int(actual):] = 1
+        rps += np.sum((pred_cum - actual_cum) ** 2)
+    return rps / len(actuals)
+```
+
+### Per-class calibration plots
+
+For classification models, always check calibration **per class**, not just overall. A model can be well-calibrated on average but poorly calibrated for specific outcomes (e.g., good at predicting home wins but overconfident on draws).
+
+```python
+fig, axes = plt.subplots(1, n_classes, figsize=(5 * n_classes, 4))
+for k, ax in enumerate(axes):
+    pred_k = pred_probs[:, k]
+    actual_k = (actuals == k).astype(float)
+    # Bin predictions and compute observed frequency
+    bin_edges = np.linspace(0, 1, 11)
+    bin_centers, bin_means = [], []
+    for i in range(10):
+        mask = (pred_k >= bin_edges[i]) & (pred_k < bin_edges[i + 1])
+        if mask.sum() > 5:
+            bin_centers.append(pred_k[mask].mean())
+            bin_means.append(actual_k[mask].mean())
+    ax.plot([0, 1], [0, 1], "k--", alpha=0.3)
+    ax.scatter(bin_centers, bin_means)
+    ax.set_title(f"Class {k}")
+    ax.set_xlabel("Predicted P")
+    ax.set_ylabel("Observed frequency")
+```
+
+### Key metrics summary
+
+| Metric | Use when | Interpretation |
+|--------|----------|---------------|
+| Brier score | Any categorical model | Lower is better. Random: ~0.67 (3-class) |
+| RPS | Ordinal outcomes | Lower is better. Penalizes "far off" predictions more |
+| ECE | Need calibration number | Lower is better. 0 = perfectly calibrated |
+| Per-class calibration | Always for classification | Points should track the diagonal |
+| Accuracy | Stakeholder communication only | Ignores probability quality — never use alone |
+
+## Temporal and out-of-sample evaluation
+
+For panel data or time-series-adjacent data (e.g., multiple seasons), always evaluate **per time period**:
+
+```python
+for period in sorted(data_oos["season"].unique()):
+    mask = data_oos["season"] == period
+    period_metrics = evaluate(pred_probs[mask], actuals[mask])
+    print(f"{period}: {period_metrics}")
+```
+
+This reveals **temporal degradation** — a model that works well on 2020 but poorly on 2023 may be overfitting to historical patterns. If you see degradation, consider whether the data-generating process has changed (concept drift) or whether the training window needs expanding.
+
+## Feature importance for shrinkage models
+
+When using sparsity priors (horseshoe, R2-D2), summarize feature relevance via **probability of practical significance**:
+
+```python
+beta_samples = idata.posterior["beta"].stack(samples=("chain", "draw")).values
+threshold = 0.05  # on the standardized coefficient scale
+
+importance = pd.DataFrame({
+    "feature": features,
+    "posterior_mean": beta_samples.mean(axis=-1),
+    "posterior_sd": beta_samples.std(axis=-1),
+    "P(|beta|>threshold)": (np.abs(beta_samples) > threshold).mean(axis=-1),
+}).sort_values("P(|beta|>threshold)", ascending=False)
+```
+
+This is more informative than just looking at posterior means — it tells you the **probability that each feature has a practically meaningful effect**, which is the natural Bayesian answer to "which features matter?"
+
 ## Decision workflow
 
 After running diagnostics:

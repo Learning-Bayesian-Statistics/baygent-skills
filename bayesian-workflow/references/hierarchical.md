@@ -144,3 +144,36 @@ plt.ylabel("Posterior group mean")
 plt.legend()
 plt.title("Shrinkage toward global mean")
 ```
+
+---
+
+## Identifiability checks
+
+A model component is **identifiable** only if the data can distinguish its effect from other components. In hierarchical models, identifiability failures are common and subtle — the model samples fine, diagnostics pass, but individual component posteriors reflect prior assumptions, not data signal.
+
+### Common identifiability traps
+
+1. **Separate intercept + offset when the offset is always active**: If every observation has a characteristic (e.g., every match row is from the home team's perspective), you cannot separately estimate a "baseline" intercept and a "home advantage" offset — only their sum is identified. Merge them into a single intercept.
+
+2. **Overparameterized intercepts**: Group-level intercepts + a global intercept without a sum-to-zero constraint creates a "trading" pattern where the global intercept can shift arbitrarily as group intercepts compensate. Use `pm.ZeroSumNormal` for group intercepts or drop the global intercept.
+
+3. **Collinear covariates at the group level**: If a group-level predictor is nearly constant within groups (e.g., all teams in a league share the same league-level feature), it is confounded with the group intercept.
+
+### How to detect
+
+```python
+# Check posterior correlations between suspect components
+az.plot_pair(
+    idata,
+    var_names=["alpha", "delta"],
+    divergences=True,
+    marginals=True,
+)
+# If correlation is near ±1 → components are not separately identifiable
+```
+
+### What to do
+
+- **Merge confounded components** into a single term (honest about what the data can tell you)
+- **Add identifying variation** to the data (e.g., include away-team observations to separate home advantage from league baseline)
+- **Accept the constraint**: if you need both components for interpretability, acknowledge that their individual posteriors are prior-driven and report only their sum
