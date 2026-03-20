@@ -53,11 +53,12 @@ rng = np.random.default_rng(sum(map(ord, "did-analysis")))
 
 result = cp.DifferenceInDifferences(
     data=df,
-    formula="outcome ~ 1 + post_treatment + C(group) + post_treatment:C(group)",
+    formula="outcome ~ 1 + post_treatment + group + post_treatment:group",
     time_variable_name="time",
     group_variable_name="group",
-    # post_treatment_variable_name defaults to "post_treatment" —
-    # data must have a column with this name (1 if post-treatment, 0 otherwise)
+    # group must be dummy-coded: 1 = treatment, 0 = control (NOT string labels)
+    # post_treatment must also be 0/1 (defaults to column named "post_treatment")
+    # data must also have a "unit" column labeling unique units (used for plotting)
     model=cp.pymc_models.LinearRegression(
         sample_kwargs={"nuts_sampler": "nutpie", "random_seed": rng}
     ),
@@ -68,7 +69,7 @@ print(es.text)
 print(es.table)
 ```
 
-Use `C(group)` for categorical encoding — not pandas categoricals. The interaction `post_treatment:C(group)` is the DiD estimator. To absorb time trends with continuous time, add `t`: `"outcome ~ 1 + t + post_treatment + C(group) + post_treatment:C(group)"`.
+The `group` column must be dummy-coded (0/1 integers), not string labels — CausalPy will reject string-valued group variables. The data must also have a `unit` column identifying individual units (used for plotting). The interaction `post_treatment:group` is the DiD estimator.
 
 **What can go wrong:** Parallel trends violated (different pre-treatment trajectories); compositional changes in group membership over time; anticipation effects (units respond before the official treatment date); SUTVA violations (treated units affect controls).
 
@@ -130,11 +131,13 @@ import numpy as np
 rng = np.random.default_rng(sum(map(ord, "synthetic-control")))
 
 result = cp.SyntheticControl(
-    data=df,
+    data=df_wide,  # MUST be wide format: index=time, columns=unit names, values=outcome
     treatment_time=pd.Timestamp("2020-01-01"),
     control_units=["unit_A", "unit_B", "unit_C"],
     treated_units=["unit_treated"],
     # SC does NOT use a formula — it finds optimal weights over donors directly
+    # If your data is long format, pivot first:
+    # df_wide = df.pivot(index="date", columns="unit", values="outcome")
     model=cp.pymc_models.WeightedSumFitter(
         sample_kwargs={"nuts_sampler": "nutpie", "random_seed": rng}
     ),

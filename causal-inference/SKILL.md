@@ -111,6 +111,8 @@ These are battle-tested lessons that save hours of debugging:
 - **Synthetic control requires the treated unit to lie within the convex hull of donors.** If the
   treated unit is an outlier (highest GDP, largest city), no weighted combination of donors can
   approximate its counterfactual. Check this before running — if violated, the design is invalid.
+- **DiD group variable must be dummy-coded (0/1).** CausalPy rejects string labels like "treatment"/"control". Use integers: 1 = treatment, 0 = control. Data also requires a `unit` column.
+- **SyntheticControl expects wide-format data.** Index = time, columns = unit names, values = outcome. If your data is long format, pivot first: `df.pivot(index="date", columns="unit", values="outcome")`.
 
 ## When things go wrong
 

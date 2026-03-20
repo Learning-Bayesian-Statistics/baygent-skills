@@ -127,7 +127,13 @@ Additive decomposition: `TE ≈ NDE + NIE`
 # Schematic DAG: T -> Y (direct), T -> M -> Y (indirect)
 # NDE: intervene do(T=1) but hold M fixed at its value under do(T=0)
 # NIE: intervene do(T=0) but let M take its value under do(T=1)
-# Use nested pm.do() calls or explicit structural equations to implement each path
+#
+# Preferred: use pm.do() to compute interventional distributions for each path.
+# Acceptable alternative: Bayesian SEM with chained structural equations, computing
+# NDE/NIE from posterior draws of structural coefficients (a * b for indirect, c for direct).
+# pm.do() is preferred because it makes the interventional logic explicit and avoids
+# manual algebra on coefficients, but both approaches give equivalent results when
+# the structural model is correctly specified.
 
 with pm.Model() as mediation_scm:
     T = pm.Bernoulli("T", p=0.5)
