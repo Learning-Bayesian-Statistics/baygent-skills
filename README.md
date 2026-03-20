@@ -9,6 +9,7 @@ A set of skills to call your agent Bayes. Thomas Bayes.
 | Skill | Description |
 |---|---|
 | [bayesian-workflow](bayesian-workflow/) | Full Bayesian modeling workflow with PyMC and ArviZ. Full breakdown [here](https://learnbayesstats.com/blog-posts/bayesian-workflow-agent-skill-pymc-arviz). |
+| [causal-inference](causal-inference/) | Production-grade Bayesian causal inference with PyMC, CausalPy, and DoWhy |
 
 More skills coming soon. Issues and PRs are welcome!
 
