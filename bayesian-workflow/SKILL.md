@@ -2,19 +2,20 @@
 name: bayesian-workflow
 description: >
   Opinionated Bayesian modeling workflow with PyMC and ArviZ. Contains critical guardrails
-  (nutpie sampler, prior/posterior predictive checks, LOO-PIT calibration, 94% HDI, non-centered
-  parameterizations, reproducible seeds) that agents won't apply unprompted — always consult
-  before writing Bayesian model code. Trigger on: building probabilistic/Bayesian models, prior
-  elicitation, MCMC inference, convergence diagnostics (divergences, R-hat, ESS), model comparison
-  (LOO-CV, ELPD, stacking weights), hierarchical/multilevel models, count regressions, logistic
-  regression with uncertainty, reporting Bayesian results, or mentions of PyMC, ArviZ,
-  InferenceData, credible intervals, posterior distributions, shrinkage, uncertainty quantification.
-  Also trigger for model comparison, diagnosing sampling problems, choosing priors, or presenting
-  stats to non-technical audiences.
+  (nutpie sampler, prior/posterior predictive checks, LOO-PIT calibration, prior sensitivity
+  checks, 94% HDI, non-centered parameterizations, reproducible seeds) that agents won't
+  apply unprompted — always consult before writing Bayesian model code. Trigger on: building
+  probabilistic/Bayesian models, prior elicitation, MCMC inference, convergence diagnostics
+  (divergences, R-hat, ESS), model comparison (LOO-CV, ELPD, stacking weights),
+  hierarchical/multilevel models, count regressions, logistic regression with uncertainty,
+  prior sensitivity analysis, reporting Bayesian results, or mentions of PyMC, ArviZ,
+  InferenceData, credible intervals, posterior distributions, shrinkage, uncertainty
+  quantification. Also trigger for model comparison, diagnosing sampling problems, choosing
+  priors, or presenting stats to non-technical audiences.
 license: MIT
 metadata:
   author: [Alexandre Andorra](https://alexandorra.github.io/)
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Bayesian Workflow
@@ -30,8 +31,9 @@ Every Bayesian analysis follows this sequence. Do not skip steps -- especially m
 5. **Inference** — `pm.sample(nuts_sampler="nutpie")`. Always use nutpie for speed (the nutpie python package provides cutting-edge sampling). Don't hardcode the number of chains — let the sampler pick the best default for the platform.
 6. **Diagnose convergence** — Use `arviz_stats.diagnose(idata)` as the first check (requires arviz-stats >= 1.0.0). It covers R-hat, ESS, divergences, tree depth, and E-BFMI in one call. See [references/diagnostics.md](references/diagnostics.md)
 7. **Criticize the model** — See [references/model-criticism.md](references/model-criticism.md)
-8. **Compare models** (if applicable) — See [references/model-comparison.md](references/model-comparison.md)
-9. **Report results** — See [references/reporting.md](references/reporting.md). When the user asks for a report or mentions a non-technical audience, generate a **standalone markdown report file** (not just code comments) using the template in reporting.md. Adapt the language to the audience — if they're new to Bayesian stats, include a glossary and plain-language explanations of key concepts.
+8. **Check prior sensitivity** — Run `psense_summary(idata)` to verify conclusions are robust to prior choices. Visualize with `plot_psense_dist(idata)` from `arviz_plots`. Requires `log_likelihood` and `log_prior` in the InferenceData — compute them after sampling if needed. See [references/sensitivity.md](references/sensitivity.md)
+9. **Compare models** (if applicable) — See [references/model-comparison.md](references/model-comparison.md)
+10. **Report results** — See [references/reporting.md](references/reporting.md). When the user asks for a report or mentions a non-technical audience, generate a **standalone markdown report file** (not just code comments) using the template in reporting.md. Adapt the language to the audience — if they're new to Bayesian stats, include a glossary and plain-language explanations of key concepts.
 
 ## Installation
 
@@ -61,7 +63,7 @@ with pm.Model(coords=coords) as model:
     # Always document WHY each prior was chosen
     mu = pm.Normal("mu", mu=0, sigma=10)  # Weakly informative: allows wide range
 
-    # --- Likelihood ---
+    # --- Data model ---
     pm.Normal("obs", mu=mu, sigma=1, observed=data, dims="obs")
 
     # --- Prior predictive check ---
@@ -73,6 +75,10 @@ with pm.Model(coords=coords) as model:
 
     # --- Posterior predictive check ---
     idata.extend(pm.sample_posterior_predictive(idata, random_seed=rng))
+
+    # --- Compute log-likelihood and log-prior for sensitivity checks & LOO ---
+    pm.compute_log_likelihood(idata, model=model)
+    pm.compute_log_prior(idata, model=model)
 
     # --- Save immediately after sampling ---
     # Late crashes can destroy valid results. Save to disk before any post-processing.
@@ -108,7 +114,7 @@ with model:
 
 ## Common model families
 
-| Problem | Likelihood | Typical priors | Reference |
+| Problem | Data model | Typical priors | Reference |
 |---|---|---|---|
 | Continuous outcome | Normal / StudentT | Normal, Gamma avoiding 0 for positive-constrained parameters | [references/priors.md](references/priors.md) |
 | Binary outcome | Bernoulli or Binomial if aggregated, with logit inverse-link | Normal(0, 1.5) on coeffs | [references/priors.md](references/priors.md) |
@@ -142,7 +148,7 @@ See [scripts/](scripts/) for all available utilities.
 
 These are battle-tested lessons that save hours of debugging:
 
-- **nutpie silently ignores `idata_kwargs={"log_likelihood": True}`**. If you need log-likelihood (for LOO-CV), call `pm.compute_log_likelihood(idata, model=model)` after sampling. This is a known issue — don't assume it's stored automatically.
+- **nutpie silently ignores `idata_kwargs`** for `log_likelihood` and `log_prior`. Always compute them explicitly after sampling: `pm.compute_log_likelihood(idata, model=model)` (needed for LOO-CV) and `pm.compute_log_prior(idata, model=model)` (needed for prior sensitivity checks). Don't assume they're stored automatically.
 - **`az.plot_khat()` requires the LOO object**, not InferenceData. Pass the output of `az.loo(idata, pointwise=True)` to it.
 - **Flat priors on scale parameters** (`HalfCauchy`, `HalfFlat`) cause funnels in hierarchical models. Use `Gamma(2, ...)` or `Exponential` — these avoid the near-zero region that creates sampling problems. If there's no group-level variation to detect, you don't need the hierarchy.
 - **Python conditionals in models** (`if x > 0`) don't work inside PyMC. Use `pm.math.switch` or `pytensor.tensor.where` instead.
@@ -158,7 +164,8 @@ These are battle-tested lessons that save hours of debugging:
 | Low ESS | High autocorrelation | More tuning steps, reparameterize, reduce correlations |
 | R-hat > 1.01 | Chains haven't mixed | More draws, better initialization, check for multimodality |
 | Prior pred. looks wrong | Bad priors | Tighten or shift priors, use domain knowledge |
-| Post. pred. misses data | Model misspecification | Add complexity (varying slopes, different likelihood, interaction terms) |
+| Post. pred. misses data | Model misspecification | Add complexity (varying slopes, different data model, interaction terms) |
 | `log_likelihood` missing | nutpie doesn't auto-store it | Call `pm.compute_log_likelihood(idata, model=model)` after sampling |
 | Slow model | Large Deterministics or recompilation | Profile with `model.profile(model.logp())`, avoid large `Deterministic` arrays |
 | Slow to initialize / poor warmup | Bad starting point | Try `init="adapt_diag_grad"` in `pm.sample()`, or run `pmx.fit(method="pathfinder")` first (`import pymc_extras as pmx`) and pass its estimates as `initvals` |
+| Prior sensitivity flag | Prior-data conflict or strong prior | Check `psense_summary(idata)` — see [references/sensitivity.md](references/sensitivity.md). Justify or revise the flagged prior |

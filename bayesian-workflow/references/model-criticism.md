@@ -106,7 +106,7 @@ A sharper calibration check. If the model is calibrated, PIT values should be un
 
 ## Simulation-based calibration (SBC)
 
-SBC validates that the entire inference pipeline is correct — priors, likelihood, sampler, and code. It simulates data from the prior, fits the model, and checks that posterior rank statistics are uniform.
+SBC validates that the entire inference pipeline is correct — priors, data model, sampler, and code. It simulates data from the prior, fits the model, and checks that posterior rank statistics are uniform.
 
 This is the gold standard for validating a new model implementation. Run it once per model specification, if you have doubts about the model, since SBC is computationally expensive.
 
@@ -120,7 +120,7 @@ Use the [simuk package](https://github.com/arviz-devs/simuk), either directly, o
 **When to run SBC**:
 - Developing a new model you'll reuse
 - Complex hierarchical models where bugs are easy to introduce
-- Custom likelihoods or potentials
+- Custom data models or potentials
 - Not necessary for routine analyses with standard model families
 
 ## Residual analysis
@@ -260,7 +260,7 @@ After running diagnostics:
    YES ↓
 
 2. Posterior predictive check pass?
-   NO  → Model misspecification. Revise likelihood or add complexity.
+   NO  → Model misspecification. Revise data model or add complexity.
    YES ↓
 
 3. LOO-CV: any high Pareto k?
@@ -268,7 +268,7 @@ After running diagnostics:
    NO  ↓
 
 4. Calibration OK?  (coverage + PIT)
-   NO  → Model is mis-calibrated. Check priors, likelihood, missing predictors.
+   NO  → Model is mis-calibrated. Check priors, data model, missing predictors.
    YES ↓
 
 5. Residual patterns?

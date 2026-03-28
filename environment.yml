@@ -12,5 +12,6 @@ dependencies:
   - pip
   - pip:
     - arviz-stats>=1.0.0
+    - arviz-plots>=1.0.0
     - causalpy>=0.8
     - dowhy>=0.14

@@ -183,3 +183,6 @@ __marimo__/
 .streamlit/secrets.toml
 
 blog-posts/
+
+# Internal working docs (specs, plans)
+docs/

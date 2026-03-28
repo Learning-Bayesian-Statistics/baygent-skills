@@ -82,6 +82,15 @@ Use this structure for written reports. Adapt sections as needed.
 |-------|------|----|-------|--------|
 [comparison table]
 
+### Prior sensitivity
+| Parameter | Prior CJS | Likelihood CJS | Diagnostic |
+|-----------|-----------|----------------|------------|
+| β₁ | 0.02 | 0.01 | Low sensitivity ✓ |
+| σ | 0.08 | 0.03 | Strong prior / weak likelihood — justified by [domain rationale] |
+
+[Brief interpretation: which parameters are sensitive, whether this affects conclusions,
+and justification for any retained informative priors.]
+
 ## Interpretation
 [What do the results mean substantively? Discuss effect sizes, practical significance,
 and how uncertainty affects conclusions. Be explicit about what the model does NOT tell us.]
@@ -193,5 +202,5 @@ The report template above is for a technical audience. When the user mentions a 
 2. **Using frequentist language**: Avoid "significant", "p < 0.05", "fail to reject". Use "probability", "credible interval", "posterior probability of direction."
 3. **Hiding diagnostics**: If convergence was imperfect, say so. If you had to fix divergences, describe how.
 4. **Ignoring practical significance**: A posterior that excludes zero is not automatically important. Discuss effect sizes in context.
-5. **Not showing prior sensitivity**: For controversial results, show how conclusions change (or not) under alternative priors.
+5. **Not showing prior sensitivity**: Run `psense_summary(idata)` and report the results — especially for policy-relevant or controversial conclusions. Show the CJS values table, flag any parameters with CJS > 0.05, and briefly explain whether the sensitivity affects your conclusions. If you have an intentionally informative prior that flags as sensitive, justify it explicitly rather than hiding the diagnostic. Readers should know which conclusions depend on prior choices and which are robust.
 6. **Skipping the generative story**: The model specification should make clear what process is assumed to have generated the data.

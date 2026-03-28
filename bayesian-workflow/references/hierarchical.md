@@ -43,8 +43,8 @@ with pm.Model(coords=coords) as centered:
     mu_group = pm.Normal("mu_group", mu=mu_global, sigma=sigma_global, dims="group")
     sigma_obs = pm.Gamma("sigma_obs", 2, 2)
     
-    # or whatever the likelihood is
-    pm.Normal("likelihood", mu=mu_group[group_idx], sigma=sigma_obs, observed=y, dims="obs")
+    # or whatever the data model is
+    pm.Normal("obs", mu=mu_group[group_idx], sigma=sigma_obs, observed=y, dims="obs")
 ```
 
 ```python
@@ -60,8 +60,8 @@ with pm.Model() as noncentered:
     mu_raw = pm.Normal("mu_raw", mu=0, sigma=1, dims="group")
     mu_group = pm.Deterministic("mu_group", mu_global + mu_raw * sigma_global, dims="group")
     
-    # or whatever the likelihood is
-    pm.Normal("likelihood", mu=mu_group[group_idx], sigma=sigma_obs, observed=y, dims="obs")
+    # or whatever the data model is
+    pm.Normal("obs", mu=mu_group[group_idx], sigma=sigma_obs, observed=y, dims="obs")
 ```
 
 **Rule of thumb**: Start with non-centered. Switch to centered only if non-centered shows poor ESS AND groups have substantial data (50+ observations each).
@@ -75,7 +75,7 @@ Each group has its own baseline, partially pooled toward a global mean.
 ```python
 # This is the centered parameterization
 mu_group = pm.Normal("mu_group", mu=mu_global, sigma=sigma_global, dims="group")
-pm.Normal("likelihood", mu=mu_group[group_idx], sigma=sigma_obs, observed=y, dims="obs")
+pm.Normal("obs", mu=mu_group[group_idx], sigma=sigma_obs, observed=y, dims="obs")
 ```
 
 ### Varying intercepts and slopes

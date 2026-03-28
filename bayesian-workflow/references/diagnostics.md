@@ -2,7 +2,7 @@
 
 ## Contents
 - Quick diagnostic checklist
-- R-hat (Gelman-Rubin)
+- R-hat
 - Effective sample size (ESS)
 - Divergences
 - Trace plots and rank plots
@@ -34,7 +34,7 @@ az.plot_trace(idata, kind="rank_vlines")
 
 If `azs.diagnose` is not available (arviz-stats < 1.0.0), fall back to the manual checks below.
 
-## R-hat (Gelman-Rubin)
+## R-hat
 
 Measures agreement across chains. Uses the rank-normalized split-R-hat (ArviZ default).
 

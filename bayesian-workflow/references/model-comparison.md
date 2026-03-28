@@ -9,7 +9,7 @@
 
 ## When to compare models
 
-Compare models when you have genuinely different modeling assumptions — not for variable selection. Bayesian model comparison answers: "Which model predicts unseen data better?", and need the same likelihood for all models being compared.
+Compare models when you have genuinely different modeling assumptions — not for variable selection. Bayesian model comparison answers: "Which model predicts unseen data better?" LOO-CV works across different data models — they do not need to share the same observation distribution (see [CV-FAQ](https://users.aalto.fi/~ave/CV-FAQ.html#differentmodels)).
 
 For variable selection, use a [BART model](https://github.com/pymc-devs/pymc-bart), or the [kulprit package](https://github.com/bambinos/kulprit).
 
