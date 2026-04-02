@@ -8,10 +8,13 @@
 
 ```
 baygent-skills/
-├── bayesian-workflow/          # Shipped skill (v1.0)
+├── bayesian-workflow/          # Shipped skill (v1.2)
 │   ├── SKILL.md                # Main workflow instructions
-│   ├── references/             # Detailed reference docs (priors, diagnostics, etc.)
+│   ├── references/             # Detailed reference docs (priors, diagnostics, sensitivity, etc.)
 │   └── scripts/                # Utility scripts (diagnose_model.py, calibration_check.py)
+├── causal-inference/           # Shipped skill (v1.0)
+│   ├── SKILL.md                # Main workflow instructions (depends on bayesian-workflow)
+│   └── references/             # DAGs, quasi-experiments, structural models, refutation, reporting
 ├── environment.yml             # Mamba/conda env definition (env name: baygent)
 ├── LICENSE                     # MIT
 └── CLAUDE.md                   # This file

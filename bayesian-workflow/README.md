@@ -17,10 +17,11 @@ Guides your coding agent through the full Bayesian workflow:
 5. **Inference** via MCMC (nutpie sampler by default)
 6. **Convergence diagnostics** (R-hat, ESS, trace plots, energy plots)
 7. **Model criticism** (posterior predictive checks, LOO-PIT calibration)
-8. **Model comparison** (LOO-CV, ELPD, stacking weights)
-9. **Reporting** with companion analysis notes and audience-adapted reports
+8. **Prior/likelihood sensitivity** (power-scaling via PSIS)
+9. **Model comparison** (LOO-CV, ELPD, stacking weights)
+10. **Reporting** with companion analysis notes and audience-adapted reports
 
-The skill enforces guardrails that agents won't apply on their own: 94% HDI, mandatory calibration checks, non-centered parameterizations for hierarchical models, reproducible descriptive seeds, immediate save-to-disk after sampling, and xarray-first data manipulation.
+The skill enforces guardrails that agents won't apply on their own: 94% HDI, mandatory calibration checks, prior/likelihood sensitivity checks, non-centered parameterizations for hierarchical models, reproducible descriptive seeds, immediate save-to-disk after sampling, and xarray-first data manipulation.
 
 ## Install
 
@@ -67,13 +68,16 @@ Once installed, just ask your agent naturally:
 
 ```
 bayesian-workflow/
-├── SKILL.md                          # Main workflow instructions (144 lines)
+├── SKILL.md                          # Main workflow instructions
+├── main.py                           # Entrypoint for programmatic use
+├── pyproject.toml                    # Package metadata
 ├── references/
 │   ├── priors.md                     # Prior selection guide
 │   ├── diagnostics.md                # Convergence diagnostics
 │   ├── model-criticism.md            # PPC, calibration, LOO-PIT
 │   ├── model-comparison.md           # LOO-CV, ELPD, stacking weights
 │   ├── hierarchical.md               # Partial pooling, non-centered parameterization
+│   ├── sensitivity.md                # Prior/likelihood sensitivity analysis (power-scaling)
 │   └── reporting.md                  # Report templates, audience adaptation
 └── scripts/
     ├── diagnose_model.py             # Post-sampling diagnostics report

@@ -21,16 +21,20 @@ More skills coming soon. Issues and PRs are welcome!
 git clone https://github.com/Learning-Bayesian-Statistics/baygent-skills.git /tmp/baygent-skills
 mkdir -p ~/.claude/skills
 cp -r /tmp/baygent-skills/bayesian-workflow ~/.claude/skills/
+cp -r /tmp/baygent-skills/causal-inference ~/.claude/skills/
 ```
 
 ### Other compatible agents
 
-Clone the repo and copy the skill folder you need into your agent's skills location:
+Clone the repo and copy the skill folders you need into your agent's skills location:
 
 ```bash
 git clone https://github.com/Learning-Bayesian-Statistics/baygent-skills.git /tmp/baygent-skills
 cp -r /tmp/baygent-skills/bayesian-workflow/ ~/.config/agents/skills/bayesian-workflow/
+cp -r /tmp/baygent-skills/causal-inference/ ~/.config/agents/skills/causal-inference/
 ```
+
+> **Note:** causal-inference depends on bayesian-workflow — install both if you want causal inference.
 
 ## Philosophy
 
@@ -39,6 +43,7 @@ These skills are **opinionated and workflow-first**. They don't just teach an ag
 Each skill is focused and lean. Rather than one monolithic skill that covers everything, we build specialized skills that do one thing well:
 
 - **bayesian-workflow** covers the fundamentals that every Bayesian analysis needs.
+- **causal-inference** handles causal design, identification, and refutation — delegating the modeling to bayesian-workflow.
 
 ## About
 
