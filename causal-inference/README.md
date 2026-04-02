@@ -21,9 +21,11 @@ Guides your coding agent through the full causal inference workflow, enforcing D
 
 The skill enforces guardrails that agents won't apply on their own: no estimation without a confirmed DAG, no causal claims without refutation, assumptions stated before results, and automatic downgrading of causal language when warranted.
 
-## Dependency
+## Install
 
-This skill requires the **bayesian-workflow** skill for all PyMC modeling steps (priors, sampling, diagnostics, calibration, reporting). Install both:
+This skill requires the **bayesian-workflow** skill for all PyMC modeling steps (priors, sampling, diagnostics, calibration, reporting). Install both together.
+
+### Claude Code
 
 ```bash
 git clone https://github.com/Learning-Bayesian-Statistics/baygent-skills.git /tmp/baygent-skills
@@ -32,24 +34,13 @@ cp -r /tmp/baygent-skills/bayesian-workflow ~/.claude/skills/
 cp -r /tmp/baygent-skills/causal-inference ~/.claude/skills/
 ```
 
-## Install
-
-### Claude Code
-
-```bash
-git clone https://github.com/Learning-Bayesian-Statistics/baygent-skills.git /tmp/baygent-skills
-mkdir -p ~/.claude/skills
-cp -r /tmp/baygent-skills/causal-inference ~/.claude/skills/
-```
-
 For project-level installation (available only in that project), copy into `.claude/skills/` at the project root instead.
 
 ### Other compatible agents (Kimi Code, Cursor, etc.)
 
-Clone the repo and copy the skill folder into your agent's skills directory:
-
 ```bash
 git clone https://github.com/Learning-Bayesian-Statistics/baygent-skills.git /tmp/baygent-skills
+cp -r /tmp/baygent-skills/bayesian-workflow/ ~/.config/agents/skills/bayesian-workflow/
 cp -r /tmp/baygent-skills/causal-inference/ ~/.config/agents/skills/causal-inference/
 ```
 
