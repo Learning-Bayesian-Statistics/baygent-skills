@@ -1,4 +1,4 @@
-# Prior Sensitivity Analysis
+# Prior/Likelihood Sensitivity Analysis
 
 Power-scaling sensitivity analysis checks whether your posterior conclusions are robust to reasonable changes in prior (or likelihood) strength — without refitting the model. It uses Pareto-smoothed importance sampling (PSIS) to simulate what would happen if you made your priors stronger or weaker.
 
