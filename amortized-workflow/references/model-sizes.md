@@ -9,28 +9,28 @@
 **Important `summary_dim` heuristic:** All summary networks accept a `summary_dim` argument that controls the dimensionality of the learned summary statistics vector. As a starting heuristic, **set `summary_dim` to 3x the number of parameters being inferred.** For example, if you are estimating 5 parameters, start with `summary_dim=15`. Scale up if diagnostics show poor recovery.
 
 ### SetTransformer
-| Model Size | embed_dims                | num_heads             | mlp_depths           | mlp_widths                |
-|------------|---------------------------|-----------------------|----------------------|---------------------------|
-| Small      | (32, 32)                  | (2, 2)                | (1, 1)               | (64, 64)                  |
-| Base       | (64, 64, 64)              | (4, 4, 4)             | (2, 2, 2)            | (128, 128, 128)           |
-| Large      | (128, 128, 128, 128)      | (8, 8, 8, 8)          | (2, 2, 2, 2)         | (256, 256, 256, 256)      |
-| XL         | (256, 256, 256, 256, 256) | (16, 16, 16, 16, 16)  | (2, 2, 2, 2, 2)      | (512, 512, 512, 512, 512) |
+| Model Size | embed_dims                | num_heads           | num_seeds |
+|------------|---------------------------|---------------------|-----------|
+| Small      | (32, 32)                  | (2, 2)              | 4         |
+| Base       | (64, 64, 64)              | (4, 4, 4)           | 8         |
+| Large      | (128, 128, 128, 128)      | (8, 8, 8, 8)        | 16        |
+| XL         | (256, 256, 256, 256, 256) | (8, 8, 8, 8, 8)     | 32        |
 
 ### FusionTransformer
-| Model Size | embed_dims                | num_heads             | mlp_depths           | mlp_widths                  | template_dim |
-|------------|---------------------------|-----------------------|----------------------|-----------------------------|--------------|
-| Small      | (32, 32)                  | (2, 2)                | (1, 1)               | (64, 64)                    | 64           |
-| Base       | (64, 64, 64)              | (4, 4, 4)             | (2, 2, 2)            | (128, 128, 128)             | 128          |
-| Large      | (128, 128, 128, 128)      | (8, 8, 8, 8)          | (2, 2, 2, 2)         | (256, 256, 256, 256)        | 256          |
-| XL         | (256, 256, 256, 256, 256) | (8, 8, 8, 8, 8)       | (2, 2, 2, 2, 2)      | (512, 512, 512, 512, 512)   | 512          |
+| Model Size | embed_dims                | num_heads           | template_dim |
+|------------|---------------------------|---------------------|--------------|
+| Small      | (32, 32)                  | (2, 2)              | 64           |
+| Base       | (64, 64, 64)              | (4, 4, 4)           | 128          |
+| Large      | (128, 128, 128, 128)      | (8, 8, 8, 8)        | 256          |
+| XL         | (256, 256, 256, 256, 256) | (8, 8, 8, 8, 8)     | 512          |
 
 ### TimeSeriesTransformer
-| Model Size | embed_dims                | num_heads             | mlp_depths           | mlp_widths                | time_embed_dim |
-|------------|---------------------------|-----------------------|----------------------|---------------------------|----------------|
-| Small      | (32, 32)                  | (2, 2)                | (1, 1)               | (64, 64)                  | 4              |
-| Base       | (64, 64, 64)              | (4, 4, 4)             | (2, 2, 2)            | (128, 128, 128)           | 8              |
-| Large      | (128, 128, 128, 128)      | (8, 8, 8, 8)          | (2, 2, 2, 2)         | (256, 256, 256, 256)      | 16             |
-| XL         | (256, 256, 256, 256, 256) | (8, 8, 8, 8, 8)       | (2, 2, 2, 2, 2)      | (512, 512, 512, 512, 512) | 32             |
+| Model Size | embed_dims                | num_heads           | time_embed_dim |
+|------------|---------------------------|---------------------|----------------|
+| Small      | (32, 32)                  | (2, 2)              | 4              |
+| Base       | (64, 64, 64)              | (4, 4, 4)           | 8              |
+| Large      | (128, 128, 128, 128)      | (8, 8, 8, 8)        | 16             |
+| XL         | (256, 256, 256, 256, 256) | (8, 8, 8, 8, 8)     | 32             |
 
 ### ConvolutionalNetwork
 | Model Size | widths                  | blocks_per_stage            |
@@ -41,12 +41,14 @@
 | XL         | (32, 64, 128, 256, 512) | 5                           |
 
 ### TimeSeriesNetwork
-| Model Size | filters                | kernel_sizes           | strides           | recurrent_dim |
-|------------|------------------------|------------------------|-------------------|---------------|
-| Small      | (16, 32)               | (3, 3)                 | (1, 1)            | 64            |
-| Base       | (16, 32, 64)           | (3, 3, 3)              | (1, 1, 1)         | 128           |
-| Large      | (16, 32, 64, 128)      | (3, 3, 3, 3)           | (1, 1, 1, 1)      | 256           |
-| XL         | (16, 32, 64, 128, 256) | (3, 3, 3, 3, 3)        | (1, 1, 1, 1, 1)   | 512           |
+| Model Size | filters           | kernel_sizes | strides    | recurrent_dim |
+|------------|-------------------|--------------|------------|---------------|
+| Small      | (16, 32)          | (3, 3)       | (1, 1)     | 64            |
+| Base       | (32, 64)          | (3, 3)       | (1, 1)     | 128           |
+| Large      | (32, 64, 128)     | (3, 3, 3)    | (1, 1, 1)  | 256           |
+| XL         | (64, 128, 256)    | (3, 3, 3)    | (1, 1, 1)  | 512           |
+
+> **Note:** All strides are 1 — no temporal downsampling is performed before the recurrent layer, preserving full temporal resolution. This can become a bottleneck on very long sequences. If sequence length exceeds a few thousand steps, consider using strides > 1 in early conv stages to reduce the sequence length fed to the recurrent layer.
 
 ## Inference networks
 
