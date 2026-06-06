@@ -100,6 +100,20 @@ mu = pm.Deterministic("mu", mu_offset * sigma_group)
 3. **Stronger priors on scale parameters**: Tight prior on group-level SD can eliminate the funnel, especially avoiding the regions near 0, which don't really mean much in practice anyways (if there is no group-level variation, you don't need to model it!)
 4. **Marginalize discrete parameters**: If possible, integrate out discrete variables analytically
 
+## When sampling fails: the escalation ladder
+
+When sampling is broken — persistent divergences, R-hat > 1.01, low ESS, or stuck/separated chains — escalate in this order, **re-checking diagnostics after each rung and stopping at the first that fixes it.** Don't jump to a model rewrite when a sampler setting would do, and don't re-run an unchanged model hoping it converges. (For divergences *specifically*, the targeted fixes above are the first thing to try; the ladder is the general path when problems persist or aren't divergence-specific.)
+
+1. **Raise `target_accept` (→ 0.95, then 0.99).** Smaller steps, fewer divergences. *Check:* divergences fall toward zero — a handful remaining with healthy R-hat/ESS is often acceptable.
+2. **Change the initializer: `init="adapt_diag_grad"`.** A gradient-informed mass-matrix start; helps when early adaptation is the failure. *Check:* chains start in-distribution (no long drift in the rank plots).
+3. **Sample longer: more `tune` and `draws`.** If ESS is the *only* failure (good R-hat, no divergences), the chain simply needs more iterations. *Check:* ESS_bulk and ESS_tail clear 100 × n_chains.
+4. **Pathfinder warm-start (init only).** Run `pmx.fit(method="pathfinder")` to find a good starting point / mass matrix, then use it to initialize NUTS — keep NUTS as the actual sampler (Pathfinder on its own is an approximation). *Check:* faster, in-distribution start; divergences/R-hat improved.
+5. **Non-centered reparameterization.** The funnel fix for hierarchical models (see the divergence list above). *Check:* funnel gone in the pairs plot; divergences cleared.
+6. **Scope down to isolate the problem.** Fit a single group, drop an interaction, or simplify the likelihood to find *which* component breaks sampling. *Check:* the reduced model samples cleanly — if so, the dropped piece is the culprit; add it back deliberately.
+7. **Architectural inversion — rethink the generative structure.** Re-marginalize discrete latents, re-order a mixture for identification, change the likelihood family, or restructure the hierarchy. **Pause and confirm with the user before this rung** — it changes the model's *meaning*, not just its sampling, and that decision is the user's.
+
+If you reach rung 7 without resolution, the problem is usually identifiability, not sampling — consult the identifiability guidance and report the model as not yet trustworthy rather than interpreting a non-converged posterior.
+
 ## Trace plots and rank plots
 
 ```python

@@ -15,7 +15,7 @@ description: >
 license: MIT
 metadata:
   author: [Alexandre Andorra](https://alexandorra.github.io/)
-  version: "1.2"
+  version: "1.4"
 ---
 
 # Bayesian Workflow
@@ -33,7 +33,7 @@ Every Bayesian analysis follows this sequence. Do not skip steps -- especially m
 7. **Criticize the model** — See [references/model-criticism.md](references/model-criticism.md)
 8. **Check prior sensitivity** — Run `psense_summary(idata)` to verify conclusions are robust to prior choices. Visualize with `plot_psense_dist(idata)` from `arviz_plots`. Requires `log_likelihood` and `log_prior` in the InferenceData — compute them after sampling if needed. See [references/sensitivity.md](references/sensitivity.md)
 9. **Compare models** (if applicable) — See [references/model-comparison.md](references/model-comparison.md)
-10. **Report results** — See [references/reporting.md](references/reporting.md). When the user asks for a report or mentions a non-technical audience, generate a **standalone markdown report file** (not just code comments) using the template in reporting.md. Adapt the language to the audience — if they're new to Bayesian stats, include a glossary and plain-language explanations of key concepts.
+10. **Report results** — Generate `<slug>/report.md` using the canonical template in [references/reporting.md](references/reporting.md). Run `scripts/check_diagnostics.py` to turn raw diagnostics into qualitative ratings + an ordered next-steps list, and use that output to fill the Assessment lines and Suggested Next Steps section. When the user mentions a non-technical audience or is new to Bayesian stats, additionally adapt the prose to plain language and include a glossary — but keep the canonical report structure as the audit trail.
 
 ## Installation
 
@@ -99,7 +99,8 @@ with pm.Model(coords=coords) as model:
 - **Save InferenceData immediately after sampling** with `idata.to_netcdf("model_output.nc")`. Late crashes or kernel restarts can destroy valid MCMC results — save before any post-processing.
 - **Use ArviZ for all plots and calibration.** Don't write custom plotting code when ArviZ already handles it — including for binary data, count data, and calibration. ArviZ developers have thought through edge cases so you don't have to.
 - **Prefer xarray over numpy for InferenceData operations.** `InferenceData` and `DataTree` objects are backed by xarray — use xarray's labeled indexing (`.sel()`, `.mean(dim=...)`, etc.) instead of converting to numpy arrays. This preserves dimension labels, avoids shape bugs, and makes code more readable. Fall back to numpy only when xarray can't do what you need.
-- **Always generate analysis notes alongside code.** When producing a model script, also produce a companion markdown file (`analysis_notes.md` or similar) that interprets the results — what the diagnostics mean, what the posteriors tell us, what the calibration plots show. Code without interpretation is incomplete.
+- **Always generate `<slug>/report.md` after a full analysis run.** Store all artifacts (`inference_data.nc`, `trace.png`, `forest.png`, `posterior_predictive.png`, `pit_ecdf.png`, `summary.csv`, `diagnostics.json`, `calibration.json`) in a slug-named results folder, and produce `report.md` from the canonical template in [references/reporting.md](references/reporting.md). Code without an interpreted, fixed-shape report is incomplete.
+- **Use `scripts/check_diagnostics.py` to interpret diagnostics, not hand-rolled prose.** Pipe the JSON outputs of `diagnose_model.py` (and optionally `calibration_check.py` and `psense_summary`) into `check_diagnostics.py` to get per-section qualitative ratings and an ordered, actionable Suggested Next Steps list. Use those outputs verbatim in the report's Assessment lines; expand only with problem-specific context.
 - **Always use the posterior mean (not median) for predictive probabilities.** The proper Bayesian predictive distribution averages over the posterior: `P(Y=k|x) = (1/S) Σ P(Y=k|x,θₛ)`. This is the mean, not the median. The median does not correspond to the posterior predictive distribution, can violate probability coherence (probabilities may not sum to 1), and biases calibration due to Jensen's inequality. In code: use `np.mean(probs, axis=sample_axis)`, never `np.median(...)`.
 - **Use `pm.set_data()` + `pm.sample_posterior_predictive()` for out-of-sample predictions.** Don't manually extract posterior samples and recompute predictions — let PyMC propagate uncertainty properly. Define predictors as `pm.Data(...)` during model building, then swap in new data:
 
@@ -130,17 +131,20 @@ with model:
 
 ## Utility scripts
 
-Run `diagnose_model.py` after sampling to get a structured convergence + diagnostics report:
+Run these in order — each script's output feeds the next.
 
 ```bash
-python scripts/diagnose_model.py --idata path/to/inference_data.nc
+# 1. Run convergence + LOO + PPC checks (writes diagnostics.json)
+python scripts/diagnose_model.py --idata <slug>/inference_data.nc --output <slug>/diagnostics.json
+
+# 2. Run calibration check (writes calibration.json + pit_ecdf.png + pit_coverage.png)
+python scripts/calibration_check.py --idata <slug>/inference_data.nc --output <slug>/calibration.json --save-plots --plot-dir <slug>/
+
+# 3. Interpret the JSON outputs into qualitative ratings + suggested next steps
+python scripts/check_diagnostics.py --diagnostics <slug>/diagnostics.json --calibration <slug>/calibration.json --output <slug>/check_report.json
 ```
 
-Run `calibration_check.py` to generate calibration plots:
-
-```bash
-python scripts/calibration_check.py --idata path/to/inference_data.nc
-```
+Step 3 is what powers the `report.md` Assessment lines and Suggested Next Steps section — never hand-roll those interpretations from raw R-hat / ESS / pareto-k numbers when the harness can produce them consistently.
 
 See [scripts/](scripts/) for all available utilities.
 
@@ -155,6 +159,8 @@ These are battle-tested lessons that save hours of debugging:
 - **Forgetting to standardize predictors** makes shared priors inappropriate and slows sampling. Always standardize before fitting, then back-transform for interpretation.
 - **Horseshoe priors create a double-funnel geometry** that standard NUTS can struggle with. Always use the **regularized (Finnish) horseshoe** (Piironen & Vehtari, 2017), which adds a slab component that smooths the geometry. Set `target_accept=0.95` or higher. If you see divergences with a horseshoe model, this is almost certainly the cause.
 - **`np.median` on posterior predictive probabilities is a silent bug.** It does not produce the Bayesian predictive distribution and can yield probabilities that don't sum to 1 across categories. Always use `np.mean` over the posterior samples dimension.
+- **Discrete latents: marginalize, don't plug in.** NUTS-only samplers (nutpie, Pathfinder) cannot sample discrete or `ordered` variables at all; PyMC's default `pm.sample()` falls back to a compound Metropolis step for them, which mixes poorly. Prefer to **marginalize** the discrete latents — `pmx.marginalize(model, [...])` or analytic integration — and feed a **true mixture likelihood** downstream (exact, O(K) per observation, NUTS-compatible). Plugging a soft relaxation (soft-min/argmax, or `E[z]`) into a nonlinear function is mathematically wrong: it is not the marginal and can return out-of-bounds values. Any mixture also needs an identification constraint (e.g. `ordered` components) or chains will label-switch.
+- **Overlapping data subsets in a likelihood double-count.** When a likelihood is assembled from per-subset terms, the subsets must partition the data *disjointly* — an observation that lands in two terms is counted twice, silently over-shrinking the posterior. Partition disjointly, or model the overlap explicitly.
 
 ## When things go wrong
 

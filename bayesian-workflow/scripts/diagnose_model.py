@@ -29,18 +29,85 @@ except ImportError:
     HAS_DIAGNOSE = False
 
 
+def _json_default(o):
+    """Coerce stray numpy scalars/arrays so json.dumps never chokes.
+
+    Belt-and-suspenders: check_convergence already returns primitives, but LOO
+    and any future additions may carry numpy types. np.int64 in particular is
+    not a Python int and is rejected by the default JSON encoder.
+    """
+    if isinstance(o, np.integer):
+        return int(o)
+    if isinstance(o, np.floating):
+        return float(o)
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    return str(o)
+
+
+def _max_from_dataset(ds):
+    """Best-effort scalar maximum from an xarray Dataset of diagnostic values.
+
+    ``arviz_stats.diagnose`` returns the per-parameter R-hat values as an xarray
+    Dataset (not JSON-serializable). We only need the scalar max for rating, so
+    extract it defensively and drop the Dataset itself.
+    """
+    if ds is None:
+        return None
+    try:
+        return float(ds.to_array().max())
+    except Exception:
+        return None
+
+
 def check_convergence(idata):
-    """Run all convergence diagnostics. Returns structured results."""
+    """Run all convergence diagnostics. Returns structured results.
+
+    Both code paths emit the SAME serializable schema so ``check_diagnostics.py``
+    has a single contract to consume: ``rhat`` / ``ess_bulk`` / ``ess_tail`` /
+    ``divergences`` each carry ``ok`` and ``problematic_params``; the
+    ``arviz_stats.diagnose`` path additionally reports ``bfmi`` and ``treedepth``.
+    No numpy scalars, numpy arrays, or xarray objects leak into the dict — those
+    are not JSON-serializable and would crash the report writer.
+    """
     # Use arviz_stats.diagnose() if available — it covers R-hat, ESS,
     # divergences, tree depth saturation, and E-BFMI in one call.
     if HAS_DIAGNOSE:
-        has_errors, diagnostics = azs.diagnose(
-            idata, return_diagnostics=True, show_diagnostics=True
+        # show_diagnostics=False keeps stdout clean so the JSON report can be
+        # piped there when --output is omitted.
+        has_errors, d = azs.diagnose(
+            idata, return_diagnostics=True, show_diagnostics=False
         )
+        rhat_bad = [str(p) for p in d.get("rhat", {}).get("bad_params", [])]
+        ess_bad = [str(p) for p in d.get("ess", {}).get("bad_params", [])]
+        div = d.get("divergent", {})
+        n_div = int(div.get("n_divergent", 0))
+        td = d.get("treedepth", {})
+        n_td = int(td.get("n_max", 0))
+        failed_chains = [int(c) for c in d.get("bfmi", {}).get("failed_chains", [])]
         return {
             "all_ok": not has_errors,
-            "diagnostics": diagnostics,
             "method": "arviz_stats.diagnose",
+            "rhat": {
+                "ok": len(rhat_bad) == 0,
+                "max": _max_from_dataset(d.get("rhat", {}).get("rhat_values")),
+                "problematic_params": rhat_bad,
+            },
+            # diagnose() reports a single ESS check; mirror it into bulk/tail so
+            # the downstream schema matches the manual fallback path exactly.
+            "ess_bulk": {"ok": len(ess_bad) == 0, "problematic_params": ess_bad},
+            "ess_tail": {"ok": len(ess_bad) == 0, "problematic_params": ess_bad},
+            "divergences": {
+                "count": n_div,
+                "pct": round(float(div.get("pct", 0.0)), 2),
+                "ok": n_div == 0,
+            },
+            "treedepth": {
+                "ok": n_td == 0,
+                "n_max": n_td,
+                "pct": round(float(td.get("pct", 0.0)), 2),
+            },
+            "bfmi": {"ok": len(failed_chains) == 0, "failed_chains": failed_chains},
         }
 
     # Fallback for arviz-stats < 1.0.0
@@ -187,7 +254,7 @@ def main():
 
     report = generate_report(idata)
 
-    output = json.dumps(report, indent=2)
+    output = json.dumps(report, indent=2, default=_json_default)
     if args.output:
         with open(args.output, "w") as f:
             f.write(output)

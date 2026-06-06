@@ -126,7 +126,10 @@ def save_pit_plot(
     confidence bands (Säilynoja et al. 2022).
     """
     plot_fn = azp.plot_loo_pit if use_loo else azp.plot_ppc_pit
-    pc = plot_fn(dt, var_names=var_name, coverage=coverage, ci_prob=ci_prob)
+    # arviz_plots 1.0 names the simultaneous-band probability `envelope_prob`;
+    # passing `ci_prob` here falls through to **pc_kwargs and the backend rejects
+    # it ("no active aesthetic"). The lower-level ecdf helpers still use ci_prob.
+    pc = plot_fn(dt, var_names=var_name, coverage=coverage, envelope_prob=ci_prob)
     pc.savefig(output_path)
     return output_path
 
