@@ -1,0 +1,14 @@
+{
+  "eval_id": 8,
+  "eval_name": "mbias-adjustment-set",
+  "prompt": "I'm estimating the effect of a job-training program on later earnings from observational data. I have a variable, 'recruiter rating', recorded before enrollment that is correlated with both who enrolls and later earnings, so I planned to control for it. I also have pre-treatment education and age. Should I just adjust for everything that was measured before treatment?",
+  "assertions": [
+    "States that adjusting for everything pre-treatment is NOT automatically safe",
+    "Explains that pre-treatment timing is necessary but not sufficient for a valid adjustment set",
+    "Identifies the M-bias / collider risk: conditioning on a pre-treatment collider can induce bias that was not there",
+    "Reasons about the causal structure of 'recruiter rating' (what causes it, what it causes) rather than adjusting reflexively",
+    "States that the DAG / back-door criterion — not timing — determines the adjustment set",
+    "Recommends building or confirming a DAG before choosing the adjustment set",
+    "Does not blanket-recommend controlling for all pre-treatment covariates"
+  ]
+}

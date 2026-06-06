@@ -400,7 +400,13 @@ result = cp.InterruptedTimeSeries(
     formula="y ~ 1 + t",
     model=cp.pymc_models.LinearRegression(sample_kwargs={"random_seed": rng, "nuts_sampler": "nutpie"}),
 )
-result.plot()  # does the post-period effect persist, decay, or reverse?
+result.plot()  # actual vs counterfactual, with the campaign window shaded
+
+# CausalPy computes the persistence ratio directly = post-period effect / during-period effect:
+p = result.analyze_persistence(direction="two-sided")
+# persistence_ratio: ~1 = effect held, 0-1 = decayed, ~0 = vanished, negative = rebounded.
+# Guard: a ratio built on a near-zero during-period effect is unstable — check the
+# during-period effect is distinguishable from zero before interpreting the ratio.
 ```
 
 **This is a functional-form / specification check, not an identification refutation.** It asks whether your *assumed effect shape* (permanent step vs. temporary pulse) matches the data; it says nothing about confounding — which is what actually breaks ITS, so keep the placebo-time and concurrent-event checks for that. Note too that after `treatment_end_time` CausalPy reverts the counterfactual to the **extrapolated pre-treatment trend**, so any persistence/decay read-off inherits the assumption — stronger the longer the post-window — that the pre-period trend remains the valid counterfactual throughout. State it.

@@ -1,0 +1,15 @@
+{
+  "eval_id": 7,
+  "eval_name": "its-effect-persistence",
+  "prompt": "A city ran a 3-month anti-speeding ad campaign (January to March 2023) and I have weekly average vehicle speeds from 2021 through 2024. There is no comparable control city. I want to estimate the campaign's effect with an interrupted time series. How should I set it up, and how do I tell whether the effect actually lasted?",
+  "assertions": [
+    "Identifies this as an Interrupted Time Series (ITS) design",
+    "Recognizes the intervention is temporary (a fixed-window campaign), not a permanent level shift",
+    "Recommends passing the intervention end (treatment_end_time in CausalPy's InterruptedTimeSeries) so the counterfactual reverts after the campaign window",
+    "Inspects whether the post-treatment effect persists or decays rather than assuming a permanent shift",
+    "Notes the persistence/decay read-off depends on the pre-treatment trend remaining a valid counterfactual (an extrapolation assumption that strengthens the longer the post-window)",
+    "Frames the persistence question as a specification / functional-form check, distinct from confounding threats",
+    "Still addresses ITS confounding threats (concurrent events at the intervention time, residual autocorrelation)",
+    "Reports the effect with uncertainty and hedges causal language appropriately given there is no control group"
+  ]
+}
