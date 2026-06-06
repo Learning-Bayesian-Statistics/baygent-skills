@@ -2,15 +2,229 @@
 
 ## Contents
 
-1. [Causal analysis report template](#causal-analysis-report-template)
-2. [Causal language guardrails](#causal-language-guardrails)
-3. [Decision-relevant HDIs](#decision-relevant-hdis)
-4. [Audience adaptation](#audience-adaptation)
-5. [Common reporting mistakes](#common-reporting-mistakes)
+1. [Canonical report artifact](#canonical-report-artifact)
+2. [Causal analysis report template (legacy / inline)](#causal-analysis-report-template)
+3. [Causal language guardrails](#causal-language-guardrails)
+4. [Decision-relevant HDIs](#decision-relevant-hdis)
+5. [Audience adaptation](#audience-adaptation)
+6. [Common reporting mistakes](#common-reporting-mistakes)
+
+---
+
+## Canonical report artifact
+
+Every causal analysis writes `report.md` inside a dedicated results folder. Static descriptions are verbatim — copy them as-is. `<placeholders>` are dynamic — fill them in from the actual run. Sections marked **[IF …]** are design-specific and should be included only when applicable.
+
+### Results folder naming
+
+Slug pattern: `<treatment>-on-<outcome>/`. Use lowercase-hyphenated, 1–4 words. For example: `policy-on-test-scores`, `exercise-on-bp`, `tariff-on-export-volume`. When iterating, append a version: `policy-on-test-scores-v2/`.
+
+```python
+import os
+
+results_dir = "<treatment>-on-<outcome>"  # e.g., "policy-on-test-scores"
+os.makedirs(results_dir, exist_ok=True)
+```
+
+### Output structure
+
+```
+<treatment>-on-<outcome>/
+├── inference_data.nc            # full InferenceData from estimation
+├── dag.png                      # rendered DAG (CausalModel.plot or graphviz)
+├── effect_posterior.png         # posterior of the causal effect
+├── forest.png                   # forest of all relevant parameters
+├── parallel_trends.png          # [IF DiD]
+├── pre_treatment_fit.png        # [IF SC]
+├── placebo_density.png          # [IF SC] distribution of placebo effects
+├── density_test.png             # [IF RDD] McCrary density
+├── bandwidth_sensitivity.png    # [IF RDD]
+├── autocorrelation.png          # [IF ITS]
+├── sensitivity_tipping.png      # unobserved confounder tipping point
+├── refutation.json              # structured refutation outcomes
+├── identification.json          # identified estimand + adjustment set
+├── effect_summary.csv           # effect estimates + HDIs at multiple widths
+└── report.md                    # this template, filled in
+```
+
+### Report template
+
+Copy this template verbatim into `<results-folder>/report.md` and fill in the `<placeholders>`. Keep static paragraphs as-is.
+
+````markdown
+# <Causal Question> — Causal Analysis Report
+
+## 1. Causal Question
+
+<One sentence: "What is the effect of <treatment> on <outcome> in <population>?" If you cannot write this sentence, you do not have a causal question yet — you have a dataset.>
+
+**Estimand:** <ATE / ATT / LATE / CATE — be specific, including the conditioning set if applicable.>
+
+## 2. DAG and Assumptions
+
+![Causal graph](dag.png)
+
+The directed acyclic graph encodes which variables are assumed to cause which others. Edges express direct causal effects assumed by the analyst. The *absence* of an edge between two variables is the most consequential assumption — it asserts there is no direct causal effect, even after conditioning. Identification of the causal effect depends entirely on this graph being correct.
+
+| Assumption | Testable? | Fragility | What if violated? |
+|------------|-----------|-----------|-------------------|
+| <e.g., No unobserved confounders> | <No / Partially / Yes> | <Robust / Moderate / Fragile> | <e.g., Effect biased in unknown direction> |
+
+<For each fragile assumption listed above, briefly state what evidence (if any) supports it. Untestable assumptions still need a defensible argument.>
+
+## 3. Identification Strategy
+
+<"We use <method (backdoor / frontdoor / DiD parallel trends / RDD continuity / IV exclusion+relevance / structural)> to identify the causal effect. This is valid because <justification, in 1–2 sentences>.">
+
+**Adjustment set / instrument / running variable:** <list the variables>
+
+**[IF NOT POINT-IDENTIFIED]** The effect is not point-identified under the available assumptions. We report bounds rather than a point estimate.
+
+## 4. Estimation
+
+**Design:** <DiD / Synthetic Control / RDD / ITS / IV / IPSW / Structural>
+
+**Model:** <likelihood, link, key priors — link to bayesian-workflow's diagnostics standards rather than restating them>
+
+**Convergence summary:** <one line — R-hat, ESS, divergences. Use the bayesian-workflow harness if available.>
+
+## 5. Results
+
+![Effect posterior](effect_posterior.png)
+
+The posterior distribution of the causal effect is the result. Point estimates and intervals are summaries of this posterior.
+
+| | Value |
+|---|---|
+| Posterior median | <value in domain units> |
+| 50% HDI | [<lo>, <hi>] |
+| 89% HDI | [<lo>, <hi>] |
+| 95% HDI | [<lo>, <hi>] |
+| P(effect > 0) | <prob> |
+| P(\|effect\| > <decision threshold>) | <prob> |
+
+**Interpretation.** <2–4 sentences in domain language. Translate the effect to natural frequencies for non-technical readers (e.g., "for every 100 people exposed, we estimate 8 more would <outcome>"). State whether the result depends on a particular HDI width.>
+
+## 6. Refutation
+
+The strength of causal language must match the strength of refutation results. We report every test, including failures.
+
+| Test | Outcome | Rating |
+|------|---------|--------|
+| <e.g., Placebo treatment time> | <result> | <PASS / MARGINAL / FAIL> |
+| <e.g., Random common cause (DoWhy)> | <result> | <PASS / MARGINAL / FAIL> |
+| <e.g., Data subset stability> | <result> | <PASS / MARGINAL / FAIL> |
+| Unobserved confounding sensitivity | tipping point ≈ <value> | <PASS / MARGINAL / FAIL> |
+
+**[IF DiD]**
+
+![Parallel trends](parallel_trends.png)
+
+Pre-treatment trends in treatment and control groups should be approximately parallel — same slope, possibly different levels. Visible divergence in the pre-period is direct evidence that parallel trends does not hold and the DiD estimate is biased.
+
+**Assessment:** <1–2 sentences — are pre-trends parallel? Any visible divergence?>
+
+**[IF SC]**
+
+![Pre-treatment fit](pre_treatment_fit.png) ![Placebo density](placebo_density.png)
+
+Synthetic control validity rests on close pre-treatment fit between treated unit and synthetic control. Placebo distributions show whether the post-treatment gap is unusually large compared to the same procedure applied to control units.
+
+**Assessment:** <1–2 sentences on fit quality and placebo distribution.>
+
+**[IF RDD]**
+
+![Density test](density_test.png) ![Bandwidth sensitivity](bandwidth_sensitivity.png)
+
+The McCrary density test checks for manipulation of the running variable around the threshold. Bandwidth sensitivity checks whether the estimate is stable across reasonable bandwidth choices.
+
+**Assessment:** <1–2 sentences — bunching at threshold? Estimate stability across bandwidths?>
+
+**[IF ITS]**
+
+![Autocorrelation](autocorrelation.png)
+
+ITS regressions on time-series data have correlated residuals. Spikes outside the confidence band on the ACF indicate residual autocorrelation that, if unmodeled, deflates standard errors.
+
+**Assessment:** <1–2 sentences — Durbin-Watson, residual autocorrelation, confounding events flagged by user.>
+
+### Sensitivity to Unobserved Confounding
+
+![Sensitivity tipping point](sensitivity_tipping.png)
+
+The tipping point is the unobserved confounder strength at which the estimated effect collapses to zero. Compare to the strongest *measured* confounder: a tipping point much larger than the strongest observed confounder is reassuring; a tipping point similar to or smaller than measured confounders means the result is fragile.
+
+**Tipping point:** <value>
+**Strongest observed confounder strength:** <value>
+**Ratio:** <tipping / observed>×
+
+**Assessment:** <one sentence — robust / marginal / fragile.>
+
+## 7. Causal Language Calibration
+
+Based on the refutation outcomes above, this analysis supports the following level of claim:
+
+> **<causal / suggestive / associational / descriptive>**
+
+<Use the harness output from `scripts/check_refutation.py`. Justify the chosen level in one sentence — which test result drove this calibration. If associational or descriptive, explicitly state that causal interpretation is not supported.>
+
+## 8. Limitations and Threats
+
+This section is **mandatory** and must be prominent — not buried in an appendix. Decision-makers must see it.
+
+Threats ranked by severity:
+
+1. **<biggest threat>** — <direction of bias if violated> <quantification (E-value, sensitivity tipping)> <what data or design would resolve it>
+2. **<next threat>** — <same structure>
+
+## 9. Plain-Language Conclusion
+
+> "We estimate <treatment> causes <outcome> to change by <effect> (<HDI>), assuming <key assumptions>. There is a <P>% probability the effect is positive. The main threat to this conclusion is <biggest weakness>. If that assumption is violated, the true effect could be <direction and magnitude of bias>."
+
+<If refutation downgraded the language to "associational" or "descriptive", rewrite the above sentence to match — do not use "causes" when you have not earned it.>
+
+## Suggested Next Steps
+
+<From `scripts/check_refutation.py` `suggest_next_steps()`. Tailor with problem-specific context.>
+
+1. <step>
+2. <step>
+
+## Appendix
+
+<Effect summary CSV, identification.json, refutation.json, code repository link, software versions.>
+````
+
+### Common "Suggested Next Steps" patterns
+
+The harness in `scripts/check_refutation.py` emits these automatically. Override only with problem-specific context.
+
+- All refutation passes, sensitivity tipping high → "Proceed with causal language. Communicate the effect with decision-relevant HDIs and the biggest threat in plain language."
+- One critical test fails (placebo non-zero, McCrary bunching, poor SC pre-fit) → "Downgrade to associational language. Investigate the failure: is it fixable (e.g., add donors, restrict bandwidth) or fundamental (manipulation, parallel trends violated)?"
+- Sensitivity tipping comparable to strongest observed confounder → "Result is fragile. Either collect more covariates, switch to a stronger design (find an instrument or discontinuity), or report explicitly as suggestive."
+- Multiple marginal failures, no critical fails → "Use suggestive language. Run alternative designs as cross-checks; if they agree, claim convergent evidence rather than identification from any single design."
+- Parallel trends violated in DiD → "Switch to synthetic control or trend-adjusted DiD. Quantify the bias the naive DiD introduced (often the most informative thing you can report)."
+- Poor SC pre-treatment fit → "Expand donor pool, add predictors, or switch to BSTS. Do not interpret the post-treatment gap until pre-fit is acceptable."
+
+### Refutation metric directions
+
+`check_refutation.py` selects the correct pass-direction from each canonical test name, so you usually do **not** set `metric` in `refutation.json` — just name the test. The non-obvious directions it handles for you:
+
+| Test(s) | What PASS means | Auto metric |
+|---------|-----------------|-------------|
+| `placebo_treatment_time`, `dowhy_placebo_treatment` | placebo effect brackets 0 | `effect` |
+| `parallel_trends_pretest`, `mccrary_density`, `autocorrelation`, `covariate_balance` | **high** p-value — fail to reject the *good* null | `pvalue_high_good` |
+| `sc_pre_treatment_fit` | low pre-fit RMSE ratio | `rmse_ratio` |
+| `iv_first_stage_strength` | high first-stage F | `strength` |
+| `random_common_cause`, `data_subset`, `leave_one_out_donors` | small shift in the estimate | `shift` |
+
+**The trap this avoids:** for parallel-trends and McCrary, a *low* p-value is bad — it rejects parallel pre-trends or signals running-variable manipulation. Labeling those with a generic `pvalue` metric (which treats low as good, for "fraction of placebos as extreme as treated" style scores) silently flips a FAIL into a PASS and lets the report claim a causal effect it has not earned. When unsure, omit `metric` and let the test name drive it.
 
 ---
 
 ## Causal analysis report template
+
+> The canonical artifact above is the source of truth. The inline structure below is kept for reference and for cases where a one-off prose report is more useful than a slug-folder artifact.
 
 Every causal analysis produces a report with this mandatory structure. Adapt sections as needed, but do not drop sections 1, 7, or 8 — they are non-negotiable.
 

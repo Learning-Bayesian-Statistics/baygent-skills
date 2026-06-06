@@ -17,9 +17,9 @@ Guides your coding agent through the full causal inference workflow, enforcing D
 5. **Estimate** — Build and fit the model (delegates PyMC mechanics to bayesian-workflow)
 6. **Refute** — Mandatory design-specific robustness checks (placebo tests, sensitivity analysis, falsification)
 7. **Interpret** — Effect size + decision-relevant HDIs + probability of direction
-8. **Report** — Defensible causal language with assumption-first structure
+8. **Report** — Canonical `<treatment>-on-<outcome>/report.md` artifact with programmatic causal-language calibration
 
-The skill enforces guardrails that agents won't apply on their own: no estimation without a confirmed DAG, no causal claims without refutation, assumptions stated before results, and automatic downgrading of causal language when warranted.
+The skill enforces guardrails that agents won't apply on their own: no estimation without a confirmed DAG, adjustment licensed by the DAG rather than timing (pre-treatment covariates are necessary, not sufficient — M-bias still bites), no causal claims without refutation, assumptions stated before results, and a programmatic harness (`scripts/check_refutation.py`) that calibrates the report's causal language — causal / suggestive / associational / descriptive — directly from refutation outcomes, instead of leaving the call to human (or agent) judgment.
 
 ## Install
 
@@ -79,12 +79,14 @@ Once installed, just ask your agent naturally:
 ```
 causal-inference/
 ├── SKILL.md                          # Main workflow instructions
-└── references/
-    ├── dags-and-identification.md    # DAG construction, backdoor/front-door criteria
-    ├── quasi-experiments.md          # DiD, synthetic control, ITS, RDD, IV, IPSW
-    ├── structural-models.md          # pm.do(), pm.observe(), counterfactuals
-    ├── refutation.md                 # Design-specific robustness checks
-    └── reporting.md                  # Causal language guardrails, report templates
+├── references/
+│   ├── dags-and-identification.md    # DAG construction, backdoor/front-door criteria
+│   ├── quasi-experiments.md          # DiD, synthetic control, ITS, RDD, IV, IPSW
+│   ├── structural-models.md          # pm.do(), pm.observe(), counterfactuals
+│   ├── refutation.md                 # Design-specific robustness checks
+│   └── reporting.md                  # Canonical report artifact + causal language guardrails
+└── scripts/
+    └── check_refutation.py           # Interprets refutation outcomes → calibrated causal language + suggested next steps
 ```
 
 ## License

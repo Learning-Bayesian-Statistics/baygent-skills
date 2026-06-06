@@ -13,7 +13,7 @@ description: >
 license: MIT
 metadata:
   author: "[Alexandre Andorra](https://alexandorra.github.io/)"
-  version: "1.0"
+  version: "1.2"
 ---
 
 # Causal Inference
@@ -51,9 +51,17 @@ are the doing phase. Think before you do.
 5. **Estimate** — Build and fit the model. Delegate all PyMC mechanics to bayesian-workflow skill.
 6. **Refute** — MANDATORY. Run design-specific robustness checks. See [references/refutation.md](references/refutation.md)
 7. **Interpret** — Effect size + decision-relevant HDIs + probability of direction.
-8. **Report** — Generate causal analysis report. See [references/reporting.md](references/reporting.md)
+8. **Report** — Generate `<treatment>-on-<outcome>/report.md` using the canonical template in [references/reporting.md](references/reporting.md). Run `scripts/check_refutation.py` to turn refutation outcomes into pass/marginal/fail ratings, calibrated causal language (causal / suggestive / associational / descriptive), and an ordered next-steps list. Use that output to fill the report's section 7 (causal language calibration) and Suggested Next Steps.
 
 ## Design selection guide
+
+Before reading the table, walk the **intake** — it routes you to a design *and* surfaces the assumptions you'll have to defend later:
+
+1. **Restate the estimand.** ATE, ATT, LATE, or a CATE? On whom, over what period? If you can't write the one-sentence estimand, you don't have a causal question yet — you have a dataset.
+2. **Identify the data shape.** Single time series, wide panel of units, long unit–time panel, cross-section, or pre/post group data?
+3. **Identify the treatment assignment.** Known intervention time, staggered adoption, a threshold/cutoff, a kink, an instrument, or observed treatment with confounders?
+4. **State the identifying story.** What makes the comparison causal — parallel trends, no anticipation, no manipulation at the cutoff, a valid instrument, overlap/positivity, donor support? This is exactly what you'll refute later.
+5. **Recommend one primary design + alternatives — and reconcile with the estimand.** Name the best-fit design from the table plus any plausible cross-check. Then check that the estimand from step 1 is the one the design *actually identifies*: DiD → ATT (on the treated); RDD → a *local* effect at the cutoff; IV → LATE for compliers (under monotonicity); SC → the treated-unit effect. If they differ, change the design or re-scope the estimand and say so. If two designs agree later, that's convergent evidence rather than reliance on a single identification.
 
 | Design | Use when | Key assumption | Tool |
 |---|---|---|---|
@@ -72,6 +80,20 @@ are the doing phase. Think before you do.
 - **No estimation without a confirmed DAG.** A causal graph is not optional decoration — it makes
   assumptions explicit and determines the adjustment set. If the user resists, explain why the DAG
   is non-negotiable before proceeding.
+- **The DAG licenses adjustment, not timing — pre-treatment is necessary, not sufficient.** Pre-treatment
+  timing only rules out two *post*-treatment hazards: collider bias (conditioning on a common effect of
+  treatment and outcome) and over-control (conditioning on a mediator). It does **not** by itself make a
+  variable safe to adjust for. A *pre-treatment* variable can still be a collider on a back-door path —
+  **M-bias**: a common effect of an unobserved cause of treatment and an unobserved cause of the outcome —
+  and adjusting for it *induces* confounding that wasn't there. So include a covariate only if (a) it is
+  pre-treatment **and** (b) the DAG shows it blocks a back-door path and is not itself a collider (or a
+  descendant of one) on an otherwise-blocked path — i.e. it satisfies the back-door/adjustment criterion.
+  Timing is the quick screen; the graph is the authority. (Deliberate **mediation analysis** is the
+  principled exception to the post-treatment ban: it conditions on a post-treatment mediator on purpose to
+  estimate a *different* estimand — direct vs. indirect effects — under stronger assumptions, including
+  **no treatment-induced mediator–outcome confounding**; declare it as mediation, don't slip it in as
+  confounder control.) If the covariates that actually satisfy the back-door criterion are too thin to
+  identify the effect, say so and frame the result as **descriptive, not causal**.
 - **No causal claims without refutation.** Every design has failure modes. Run at minimum one
   design-specific robustness check (placebo test, sensitivity analysis, falsification test) before
   reporting results. See [references/refutation.md](references/refutation.md).
@@ -85,6 +107,16 @@ are the doing phase. Think before you do.
 - **Downgrade causal language when warranted.** If identification assumptions are unverifiable or
   refutation raises flags, soften claims: "consistent with a causal effect" not "causes", "estimated
   effect" not "true effect". Flag uncertainty loudly in the report.
+- **Use `scripts/check_refutation.py` to calibrate language, not human judgment.** The script takes
+  a structured `refutation.json` (see its docstring for schema) and returns a calibrated level —
+  causal / suggestive / associational / descriptive — plus an ordered list of next steps. Use the
+  script's output verbatim in the report; expand only with problem-specific context. Hand-rolled
+  language calibration is exactly where overclaiming creeps in.
+- **Always generate `<treatment>-on-<outcome>/report.md` after the analysis.** Store all artifacts
+  (`inference_data.nc`, `dag.png`, `effect_posterior.png`, `forest.png`, design-specific figures,
+  `refutation.json`, `effect_summary.csv`) in the slug-named results folder, and produce `report.md`
+  from the canonical template in [references/reporting.md](references/reporting.md). The report is
+  the audit trail; code without an interpreted, fixed-shape report is incomplete.
 - **Ask the user when domain knowledge is needed.** You cannot know whether an instrument is valid,
   whether parallel trends holds, or whether a confounder exists without domain expertise. Ask
   before assuming.
@@ -113,6 +145,17 @@ These are battle-tested lessons that save hours of debugging:
   approximate its counterfactual. Check this before running — if violated, the design is invalid.
 - **DiD group variable must be dummy-coded (0/1).** CausalPy rejects string labels like "treatment"/"control". Use integers: 1 = treatment, 0 = control. Data also requires a `unit` column.
 - **SyntheticControl expects wide-format data.** Index = time, columns = unit names, values = outcome. If your data is long format, pivot first: `df.pivot(index="date", columns="unit", values="outcome")`.
+
+## Utility scripts
+
+```bash
+# Interpret refutation outcomes and calibrate causal language
+python scripts/check_refutation.py --refutation <slug>/refutation.json --output <slug>/check_report.json
+```
+
+The `refutation.json` is written by the analyst from DoWhy/CausalPy refutation outputs. See the
+[script docstring](scripts/check_refutation.py) for the JSON schema, the test categories
+(critical vs. marginal), and the language calibration rules.
 
 ## When things go wrong
 
