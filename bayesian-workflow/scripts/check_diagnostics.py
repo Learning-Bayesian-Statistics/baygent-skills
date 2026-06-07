@@ -95,17 +95,20 @@ def _rate_loo(loo: dict) -> str:
 
     pk = loo.get("pareto_k", {})
     n_bad = pk.get("n_bad", 0)
-    n_marginal = pk.get("n_marginal", 0)
-    pk_max = pk.get("max", 0.0)
+    pk_max = pk.get("max")
 
+    # Any bad point (k > 0.7, or a non-finite k that LOO could not estimate) caps
+    # the rating at poor — a low max over the *remaining* points doesn't redeem an
+    # unreliable observation. pk_max is None only when every point is non-finite.
+    if n_bad > 0:
+        return "poor"
+    if pk_max is None:
+        return "not computed"
     if pk_max <= PARETO_K_OK:
         return "excellent"
-    elif pk_max <= PARETO_K_FAIR and n_bad == 0:
+    if pk_max <= PARETO_K_FAIR:
         return "fair"
-    elif n_bad > 0:
-        return "poor"
-    else:
-        return "fair"
+    return "poor"
 
 
 def _rate_calibration(cal: dict) -> tuple[str, str]:

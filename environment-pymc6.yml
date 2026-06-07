@@ -1,0 +1,31 @@
+# PyMC 6 / ArviZ 1.0 environment for the bayesian-workflow (and amortized-workflow) skills.
+#
+# Companion to environment.yml (PyMC 5). The two-env setup is how we guarantee
+# dual-compatibility during the transition: the reporting-harness smoke test and the
+# bayesian-workflow scenario evals are run on BOTH envs, and that dual run *is* the
+# dual-compatibility guarantee.
+#
+# Causal-inference is intentionally absent here: CausalPy still caps pymc<6, so the
+# causal skill stays on the PyMC 5 `baygent` env until CausalPy ships PyMC-6 support.
+#
+# Recreate with: mamba env create -f environment-pymc6.yml
+name: baygent6
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pymc>=6,<7
+  - nutpie
+  - preliz
+  - networkx
+  # ArviZ 1.x reads/writes .nc via xarray's open_datatree, which needs a
+  # group-aware netcdf engine. A pip-only arviz-1 install does NOT pull one,
+  # so without this the diagnose/calibration scripts can't load a saved .nc.
+  - netcdf4
+  - h5netcdf
+  - pip
+  - pip:
+    - arviz>=1.0.0
+    - arviz-stats>=1.0.0
+    - arviz-plots>=1.0.0
+    - pymc-extras>=0.12

@@ -23,8 +23,17 @@ try:
     import arviz_plots as azp
     import arviz_stats as azs
     from arviz_base import convert_to_datatree
-    from arviz_plots.plots.ppc_pit_plot import difference_ecdf_pit
     from arviz_stats.ecdf_utils import ecdf_pit
+
+    # `difference_ecdf_pit` is a statistics helper; its stable home is
+    # arviz_stats.ecdf_utils on arviz-stats >= 1.0 (both PyMC-5 and PyMC-6 stacks).
+    # arviz_plots <= 1.0 also re-exported it under arviz_plots.plots.ppc_pit_plot,
+    # but arviz_plots 1.1 removed that re-export — import from arviz_stats, and only
+    # fall back to the old plots path for the older layout.
+    try:
+        from arviz_stats.ecdf_utils import difference_ecdf_pit
+    except ImportError:  # pragma: no cover - pre-1.0 arviz_stats layout
+        from arviz_plots.plots.ppc_pit_plot import difference_ecdf_pit
 except ImportError:
     print(
         json.dumps(
