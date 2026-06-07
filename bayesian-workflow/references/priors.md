@@ -158,11 +158,14 @@ Use R2-D2 when:
 This is mandatory. Never skip it.
 
 ```python
+import arviz_plots as azp
+
 with model:
     prior_pred = pm.sample_prior_predictive()
 
-# Visualize
-az.plot_ppc(prior_pred, group="prior", num_pp_samples=100)
+# Visualize — arviz_plots runs on PyMC 5 and 6
+# (az.plot_ppc was removed from the ArviZ 1.x umbrella; note the full group name)
+azp.plot_ppc_dist(prior_pred, group="prior_predictive")
 
 # Check: do simulated datasets look plausible?
 # - Are values in a reasonable range?

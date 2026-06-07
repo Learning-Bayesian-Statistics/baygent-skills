@@ -18,8 +18,16 @@ Regression guards (each maps to a real bug this test was written to lock down):
      as PASS, and must not award "causal" language when it fails. (Was: the
      generic p-value rater treated low p as good, inverting the verdict.)
 
+This is a SINGLE-env test and now passes on both the PyMC 5 stack (env
+``baygent``) and the PyMC 6 / ArviZ 1.x stack (env ``baygent6``). The companion
+``cross_env_equivalence.py`` goes further: it feeds one shared idata to BOTH envs
+and asserts they produce identical diagnostics/ratings — guarding against
+dual-version code that runs on both but silently disagrees on one.
+
 Run:
-    conda run -n baygent python evals/smoke/test_reporting_harness.py
+    conda run -n baygent  python evals/smoke/test_reporting_harness.py
+    conda run -n baygent6 python evals/smoke/test_reporting_harness.py
+    python evals/smoke/cross_env_equivalence.py          # cross-env gate
 Exits 0 on success, 1 on any failed assertion.
 """
 

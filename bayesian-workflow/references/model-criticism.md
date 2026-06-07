@@ -15,11 +15,14 @@ Model criticism answers: "Is this model any good?" Convergence diagnostics (refe
 The most important model criticism tool. Simulate data from the fitted model and compare to observed data.
 
 ```python
+import arviz_plots as azp
+
 with model:
     idata.extend(pm.sample_posterior_predictive(idata, random_seed=rng))
 
 # Visual check: do simulated datasets resemble the real data?
-az.plot_ppc(idata)
+# arviz_plots runs on PyMC 5 and 6 (az.plot_ppc was removed from the ArviZ 1.x umbrella)
+azp.plot_ppc_dist(idata)
 ```
 
 **What to look for**:
@@ -27,7 +30,7 @@ az.plot_ppc(idata)
 - Check shape, spread, and key features (skewness, multimodality, tails)
 - Systematic departures indicate model misspecification
 
-**Targeted PPCs** — Check specific data features the model should capture, using `az.plot_ppc` 
+**Targeted PPCs** — Check specific data features the model should capture, using `arviz_plots.plot_ppc_dist`
 to isolate parameters of interest (e.g the posterior standard deviation, to check if model captures the observed variance).
 
 Choose test statistics relevant to your problem: mean, variance, skewness, max, proportion above threshold, autocorrelation (for time series), etc.

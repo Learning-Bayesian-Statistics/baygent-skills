@@ -55,7 +55,21 @@ def _max_from_dataset(ds):
     if ds is None:
         return None
     try:
-        return float(ds.to_array().max())
+        # Reduce each variable independently, then take the overall max. This is
+        # robust to (a) modern xarray dropping Dataset.to_array() in favour of
+        # to_dataarray(), and (b) variables with mismatched dims (scalar params
+        # alongside a vector Deterministic) that break both to_array/to_dataarray.
+        # arviz_stats.diagnose only stores the *flagged* params here, so an empty
+        # Dataset (everything converged) correctly yields None — no max to report.
+        data_vars = getattr(ds, "data_vars", None)
+        if data_vars is not None:
+            vals = [float(ds[v].max()) for v in data_vars]
+        else:
+            vals = [float(ds.max())]  # already a DataArray
+        # Drop non-finite maxima — a NaN here would serialize as a bare `NaN`,
+        # which json.dumps emits but is invalid JSON (rejected by strict parsers).
+        finite = [v for v in vals if np.isfinite(v)]
+        return max(finite) if finite else None
     except Exception:
         return None
 
@@ -156,26 +170,76 @@ def check_convergence(idata):
     return results
 
 
+def _group_names(idata):
+    """Group names as a set, normalized across InferenceData and DataTree.
+
+    PyMC 5 / arviz 0.23 return an ``InferenceData`` whose ``groups`` is a
+    *method* yielding bare names (``"log_likelihood"``). PyMC 6 / arviz 1.x
+    return a ``DataTree`` whose ``groups`` is a *property* yielding *paths*
+    (``"/log_likelihood"``). Calling ``idata.groups()`` on the latter raises
+    ``'tuple' object is not callable`` — which, swallowed by check_loo's except,
+    silently drops LOO on PyMC 6 even when log_likelihood is present. Normalize
+    both shapes to a set of bare names.
+    """
+    groups = getattr(idata, "groups", None)
+    if groups is None:
+        return set()
+    raw = groups() if callable(groups) else groups
+    return {s for g in raw if (s := str(g).strip("/"))}
+
+
+def _loo_field(loo, *names):
+    """First present attribute among ``names`` on an ELPDData, else None.
+
+    arviz 1.x renamed the classic ELPDData fields: ``elpd_loo`` -> ``elpd`` and
+    ``p_loo`` -> ``p`` (``se`` and ``pareto_k`` are unchanged). Trying each name
+    in turn makes the extractor work on arviz 0.23 and 1.x alike.
+    """
+    for n in names:
+        if hasattr(loo, n):
+            return getattr(loo, n)
+    return None
+
+
 def check_loo(idata, model=None):
     """Run LOO-CV and check Pareto k diagnostics."""
     try:
-        if "log_likelihood" not in idata.groups():
+        if "log_likelihood" not in _group_names(idata):
             if model is not None:
                 pm.compute_log_likelihood(idata, model=model)
             else:
                 return {"computed": False, "error": "No log_likelihood group and no model provided. Pass --model or call pm.compute_log_likelihood(idata, model=model) before saving."}
         loo = az.loo(idata, pointwise=True)
-        pareto_k = loo.pareto_k.values
+        pareto_k = np.asarray(_loo_field(loo, "pareto_k"), dtype=float)
+        elpd = _loo_field(loo, "elpd_loo", "elpd")
+        se = _loo_field(loo, "se")
+        p_loo = _loo_field(loo, "p_loo", "p")
 
+        # A non-finite Pareto-k means the importance-sampling LOO for that point
+        # could not be estimated — arviz 1.x returns NaN there, where arviz 0.23
+        # sometimes smoothed it to a finite value. Keep it DISTINCT from a finite
+        # k > 0.7 (different diagnosis, different fix), and take the max over the
+        # finite values only, so a bare NaN never leaks into the JSON report
+        # (json.dumps emits `NaN`, which is invalid JSON).
+        finite = pareto_k[np.isfinite(pareto_k)]
+        n_nonfinite = int(pareto_k.size - finite.size)
+
+        # Pareto-k cutoff is held at the classic 0.7 (not arviz 1.x's
+        # data-dependent good_k) so the same idata yields the same rating on both
+        # the PyMC 5 and PyMC 6 stacks — cross-version equivalence over novelty.
+        # n_bad counts ONLY finite k > 0.7, so the "k > 0.7" wording downstream is
+        # always literally true; non-finite points are reported via n_nonfinite.
+        n_high = int(np.sum(finite > 0.7))
         results = {
-            "elpd": float(loo.elpd_loo),
-            "se": float(loo.se),
-            "p_loo": float(loo.p_loo),
+            "elpd": float(elpd) if elpd is not None else None,
+            "se": float(se) if se is not None else None,
+            "p_loo": float(p_loo) if p_loo is not None else None,
             "pareto_k": {
-                "max": float(pareto_k.max()),
-                "n_bad": int(np.sum(pareto_k > 0.7)),
-                "n_marginal": int(np.sum((pareto_k > 0.5) & (pareto_k <= 0.7))),
-                "ok": bool(np.all(pareto_k <= 0.7)),
+                "max": float(finite.max()) if finite.size else None,
+                "n_bad": n_high,
+                "n_marginal": int(np.sum((finite > 0.5) & (finite <= 0.7))),
+                "n_nonfinite": n_nonfinite,
+                "ok": n_high == 0 and n_nonfinite == 0,
             },
             "computed": True,
         }
@@ -215,10 +279,18 @@ def generate_report(idata, model=None):
     issues = []
     if not report["convergence"]["all_ok"]:
         issues.append("Convergence issues detected — results may be unreliable")
-    if report["loo"].get("computed") and not report["loo"]["pareto_k"]["ok"]:
-        issues.append(
-            f"{report['loo']['pareto_k']['n_bad']} observations with Pareto k > 0.7"
-        )
+    loo_pk = report["loo"].get("pareto_k", {}) if report["loo"].get("computed") else {}
+    if loo_pk and not loo_pk.get("ok", True):
+        n_high = loo_pk.get("n_bad", 0)
+        n_nf = loo_pk.get("n_nonfinite", 0)
+        parts = []
+        if n_high:
+            parts.append(f"{n_high} observation(s) with Pareto k > 0.7")
+        if n_nf:
+            parts.append(
+                f"{n_nf} observation(s) with non-finite Pareto k (LOO could not be estimated)"
+            )
+        issues.append("; ".join(parts) if parts else "influential observations in LOO")
     if not report["posterior_predictive"]["available"]:
         issues.append("No posterior predictive checks available")
 
