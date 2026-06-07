@@ -52,8 +52,9 @@ import arviz as az
 import arviz_plots as azp
 import matplotlib.pyplot as plt
 
-# Trace (both stacks; for a rank view use az.plot_rank(idata))
-az.plot_trace(idata)
+# Trace — pass var_names to focus on parameters (ArviZ 1.x caps the subplot count,
+# so a vector Deterministic over `obs` would error). Rank view: az.plot_rank(idata, var_names=...).
+az.plot_trace(idata, var_names=["beta", "sigma"])  # adjust to your parameters
 plt.gcf().savefig(os.path.join(results_dir, "trace.png"), dpi=150, bbox_inches="tight")
 plt.close()
 

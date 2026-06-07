@@ -64,8 +64,12 @@ def _max_from_dataset(ds):
         data_vars = getattr(ds, "data_vars", None)
         if data_vars is not None:
             vals = [float(ds[v].max()) for v in data_vars]
-            return max(vals) if vals else None
-        return float(ds.max())  # already a DataArray
+        else:
+            vals = [float(ds.max())]  # already a DataArray
+        # Drop non-finite maxima — a NaN here would serialize as a bare `NaN`,
+        # which json.dumps emits but is invalid JSON (rejected by strict parsers).
+        finite = [v for v in vals if np.isfinite(v)]
+        return max(finite) if finite else None
     except Exception:
         return None
 
@@ -213,26 +217,29 @@ def check_loo(idata, model=None):
 
         # A non-finite Pareto-k means the importance-sampling LOO for that point
         # could not be estimated — arviz 1.x returns NaN there, where arviz 0.23
-        # sometimes smoothed it to a finite value. Treat it as a bad point, and
-        # take the max over the FINITE values only, so a bare NaN never leaks into
-        # the JSON report (json.dumps emits `NaN`, which is invalid JSON).
+        # sometimes smoothed it to a finite value. Keep it DISTINCT from a finite
+        # k > 0.7 (different diagnosis, different fix), and take the max over the
+        # finite values only, so a bare NaN never leaks into the JSON report
+        # (json.dumps emits `NaN`, which is invalid JSON).
         finite = pareto_k[np.isfinite(pareto_k)]
         n_nonfinite = int(pareto_k.size - finite.size)
 
         # Pareto-k cutoff is held at the classic 0.7 (not arviz 1.x's
         # data-dependent good_k) so the same idata yields the same rating on both
         # the PyMC 5 and PyMC 6 stacks — cross-version equivalence over novelty.
-        n_bad = int(np.sum(finite > 0.7)) + n_nonfinite
+        # n_bad counts ONLY finite k > 0.7, so the "k > 0.7" wording downstream is
+        # always literally true; non-finite points are reported via n_nonfinite.
+        n_high = int(np.sum(finite > 0.7))
         results = {
             "elpd": float(elpd) if elpd is not None else None,
             "se": float(se) if se is not None else None,
             "p_loo": float(p_loo) if p_loo is not None else None,
             "pareto_k": {
                 "max": float(finite.max()) if finite.size else None,
-                "n_bad": n_bad,
+                "n_bad": n_high,
                 "n_marginal": int(np.sum((finite > 0.5) & (finite <= 0.7))),
                 "n_nonfinite": n_nonfinite,
-                "ok": n_bad == 0,
+                "ok": n_high == 0 and n_nonfinite == 0,
             },
             "computed": True,
         }
@@ -272,10 +279,18 @@ def generate_report(idata, model=None):
     issues = []
     if not report["convergence"]["all_ok"]:
         issues.append("Convergence issues detected — results may be unreliable")
-    if report["loo"].get("computed") and not report["loo"]["pareto_k"]["ok"]:
-        issues.append(
-            f"{report['loo']['pareto_k']['n_bad']} observations with Pareto k > 0.7"
-        )
+    loo_pk = report["loo"].get("pareto_k", {}) if report["loo"].get("computed") else {}
+    if loo_pk and not loo_pk.get("ok", True):
+        n_high = loo_pk.get("n_bad", 0)
+        n_nf = loo_pk.get("n_nonfinite", 0)
+        parts = []
+        if n_high:
+            parts.append(f"{n_high} observation(s) with Pareto k > 0.7")
+        if n_nf:
+            parts.append(
+                f"{n_nf} observation(s) with non-finite Pareto k (LOO could not be estimated)"
+            )
+        issues.append("; ".join(parts) if parts else "influential observations in LOO")
     if not report["posterior_predictive"]["available"]:
         issues.append("No posterior predictive checks available")
 

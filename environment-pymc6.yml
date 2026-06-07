@@ -25,7 +25,10 @@ dependencies:
   - h5netcdf
   - pip
   - pip:
-    - arviz>=1.0.0
-    - arviz-stats>=1.0.0
-    - arviz-plots>=1.0.0
-    - pymc-extras>=0.12
+    # Cap below the next major: ArviZ 1.x reorganized its API once already
+    # (0.23 -> 1.0), so an unbounded floor could pull a future 2.0 that breaks
+    # the scripts. Re-test and lift the cap when 2.0 is vetted.
+    - arviz>=1.0.0,<2
+    - arviz-stats>=1.0.0,<2
+    - arviz-plots>=1.0.0,<2
+    - pymc-extras>=0.12,<1

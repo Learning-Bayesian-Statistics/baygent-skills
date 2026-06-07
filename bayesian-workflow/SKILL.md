@@ -58,18 +58,19 @@ is the compatibility guarantee.
 Most code is identical across versions. Where an API genuinely diverges, prefer the
 form that runs on **both**:
 
-| Task | Modern (PyMC 6 / ArviZ 1.x) — also runs on PyMC 5 where noted | Legacy (PyMC 5 / ArviZ 0.23) |
+| Task | Modern (PyMC 6 / ArviZ 1.x) | Legacy (PyMC 5 / ArviZ 0.23) |
 |---|---|---|
-| Posterior-predictive plot | `arviz_plots.plot_ppc_dist(idata)` (runs on both) | `az.plot_ppc(idata)` (removed in ArviZ 1.x) |
-| Trace / rank plot | `az.plot_trace(idata)` (both); rank view `az.plot_rank(idata)` (both) or `arviz_plots.plot_trace_dist(idata)` | `az.plot_trace(idata, kind="rank_vlines")` (the `kind=` arg is 0.23-only) |
-| Prior-predictive draws | `pm.sample_prior_predictive(draws=500)` (runs on both) | `samples=500` (removed in PyMC 6) |
-| Summary interval | `az.summary(idata, ci_prob=0.94, ci_kind="hdi")` | `az.summary(idata, hdi_prob=0.94)` |
+| Posterior-predictive plot | `arviz_plots.plot_ppc_dist(idata)` — runs on both | `az.plot_ppc(idata)` (removed in ArviZ 1.x) |
+| Trace / rank plot | `az.plot_trace(idata, var_names=[...])`; rank view `az.plot_rank(idata, var_names=[...])` — both run on both, but **pass `var_names`**: ArviZ 1.x errors when the auto-selected set exceeds its subplot cap (e.g. a vector `Deterministic` like `mu` with an `obs` dim) | `az.plot_trace(idata, kind="rank_vlines")` (the `kind=` arg is 0.23-only) |
+| Prior-predictive draws | `pm.sample_prior_predictive(draws=500)` — runs on both | `samples=500` (removed in PyMC 6) |
+| Summary interval | `az.summary(idata, ci_prob=0.94, ci_kind="hdi")` (ArviZ 1.x **only**) | `az.summary(idata, hdi_prob=0.94)` (ArviZ 0.23 **only**) |
 | Sampler output type | `DataTree` | `InferenceData` |
 
 `arviz_plots` (the ArviZ 1.x plotting package, imported as `azp`) installs on **both**
 stacks, so leading with `azp.*` plots is the most portable choice. Bare `az.summary(idata)`
-works on both but the default interval differs (ArviZ 1.x: 89% ETI; ArviZ 0.23: 94% HDI) —
-pass the kwargs above to pin it. `arviz_stats.diagnose`, `az.loo`, `az.plot_forest/energy/pair/khat`,
+works on both, but there is no single interval kwarg that does — `ci_prob`/`ci_kind` is
+ArviZ 1.x and `hdi_prob` is ArviZ 0.23 (the bare default also differs: 89% ETI vs 94% HDI).
+`arviz_stats.diagnose`, `az.loo`, `az.plot_forest/energy/pair/khat`,
 and `idata.to_netcdf()` are unchanged on both; `InferenceData` and `DataTree` are both
 xarray-backed, so downstream `.sel()` / `az.*` calls are identical.
 
@@ -122,7 +123,7 @@ with pm.Model(coords=coords) as model:
 - **Always run calibration checks** (PIT / coverage). Use ArviZ's `plot_ppc_pit` for this — it handles all data types (continuous, binary, count) correctly. See [references/model-criticism.md](references/model-criticism.md).
 - **Document every prior choice** with a brief justification in a code comment.
 - **Never report point estimates alone**. Always include credible intervals — a 94% HDI is a fine default, but no interval width is magic (see [references/reporting.md](references/reporting.md)).
-- **Use `arviz_stats.diagnose(idata)` as the first diagnostic on every model** (arviz-stats >= 1.0.0). It checks R-hat, ESS, divergences, tree depth saturation, and E-BFMI in one call. Follow up with `az.plot_trace(idata)` for visual inspection (both stacks); for rank-based convergence views use `az.plot_rank(idata)` — the older `az.plot_trace(idata, kind="rank_vlines")` is ArviZ-0.23-only.
+- **Use `arviz_stats.diagnose(idata)` as the first diagnostic on every model** (arviz-stats >= 1.0.0). It checks R-hat, ESS, divergences, tree depth saturation, and E-BFMI in one call. Follow up with `az.plot_trace(idata, var_names=[...])` for visual inspection, or `az.plot_rank(idata, var_names=[...])` for rank-based convergence views (both run on both stacks). Pass `var_names` to focus on the parameters — ArviZ 1.x errors if the auto-selected set (e.g. a vector `Deterministic` over an `obs` dim) exceeds its subplot cap. The older `az.plot_trace(idata, kind="rank_vlines")` is ArviZ-0.23-only.
 - **Don't hardcode number of chains.** Let PyMC / nutpie choose the optimal default for the user's platform. Just call `pm.sample()` without specifying `chains`.
 - **Use reproducible, descriptive seeds.** Never use magic numbers like `42`. Instead, derive a seed from the analysis name: `RANDOM_SEED = sum(map(ord, "my-analysis-name"))`. Pass it to `pm.sample(random_seed=rng)`, `pm.sample_prior_predictive(random_seed=rng)`, and numpy via `rng = np.random.default_rng(RANDOM_SEED)`.
 - **Save InferenceData immediately after sampling** with `idata.to_netcdf("model_output.nc")`. Late crashes or kernel restarts can destroy valid MCMC results — save before any post-processing.

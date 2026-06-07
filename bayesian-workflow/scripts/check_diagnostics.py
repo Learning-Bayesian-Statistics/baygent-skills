@@ -95,12 +95,14 @@ def _rate_loo(loo: dict) -> str:
 
     pk = loo.get("pareto_k", {})
     n_bad = pk.get("n_bad", 0)
+    n_nonfinite = pk.get("n_nonfinite", 0)
     pk_max = pk.get("max")
 
-    # Any bad point (k > 0.7, or a non-finite k that LOO could not estimate) caps
-    # the rating at poor — a low max over the *remaining* points doesn't redeem an
-    # unreliable observation. pk_max is None only when every point is non-finite.
-    if n_bad > 0:
+    # Any bad point caps the rating at poor — whether a finite k > 0.7 or a
+    # non-finite k that LOO could not estimate. A low max over the *remaining*
+    # points doesn't redeem an unreliable observation. pk_max is None only when
+    # every point is non-finite.
+    if n_bad > 0 or n_nonfinite > 0:
         return "poor"
     if pk_max is None:
         return "not computed"
@@ -182,7 +184,13 @@ def check_diagnostics(
             "rating": conv_rating,
             "problematic_params": conv_issues,
         }
-        report["loo"] = {"rating": _rate_loo(diagnostics.get("loo", {}))}
+        loo_in = diagnostics.get("loo", {})
+        report["loo"] = {
+            "rating": _rate_loo(loo_in),
+            # carry the Pareto-k breakdown so suggest_next_steps can distinguish
+            # finite k > 0.7 from non-finite (could-not-estimate) points.
+            "pareto_k": loo_in.get("pareto_k", {}),
+        }
         ppc = diagnostics.get("posterior_predictive", {})
         report["posterior_predictive"] = {
             "available": bool(ppc.get("available", False)),
@@ -273,7 +281,7 @@ def suggest_next_steps(report: dict) -> list[str]:
             steps.append(
                 f"R-hat or ESS flags on {preview} — run more draws, try "
                 "init=\"adapt_diag_grad\", or warm-start with `pmx.fit(method=\"pathfinder\")`. "
-                "Check for multimodality with az.plot_trace(idata, kind=\"rank_vlines\")."
+                "Check for multimodality with az.plot_rank(idata) (runs on both ArviZ stacks)."
             )
 
     # ── Calibration ───────────────────────────────────────────────────
@@ -306,14 +314,31 @@ def suggest_next_steps(report: dict) -> list[str]:
         )
 
     # ── LOO ───────────────────────────────────────────────────────────
-    loo_rating = report.get("loo", {}).get("rating", "not computed")
+    loo = report.get("loo", {})
+    loo_rating = loo.get("rating", "not computed")
+    loo_pk = loo.get("pareto_k", {})
+    n_high = loo_pk.get("n_bad", 0)
+    n_nonfinite = loo_pk.get("n_nonfinite", 0)
     if loo_rating == "poor":
-        steps.append(
-            "LOO Pareto-k > 0.7 for some observations — these points are highly "
-            "influential. Inspect them (often outliers or high-leverage), consider "
-            "a more robust likelihood (StudentT), or refit excluding them to test "
-            "sensitivity. Use az.loo(idata, pointwise=True) and az.plot_khat(loo)."
-        )
+        if n_high:
+            steps.append(
+                "LOO Pareto-k > 0.7 for some observations — these points are highly "
+                "influential. Inspect them (often outliers or high-leverage), consider "
+                "a more robust likelihood (StudentT), or refit excluding them to test "
+                "sensitivity. Use az.loo(idata, pointwise=True) and az.plot_khat(loo)."
+            )
+        if n_nonfinite:
+            steps.append(
+                f"LOO could not be estimated for {n_nonfinite} observation(s) "
+                "(non-finite Pareto-k — degenerate importance weights). This usually "
+                "co-occurs with sampling problems, so fix convergence first; then "
+                "inspect those points and consider a more robust likelihood (StudentT)."
+            )
+        if not n_high and not n_nonfinite:
+            steps.append(
+                "LOO flags a problem — inspect the pointwise Pareto-k with "
+                "az.loo(idata, pointwise=True) and az.plot_khat(loo)."
+            )
     elif loo_rating == "fair":
         steps.append(
             "LOO Pareto-k between 0.5 and 0.7 for some observations — borderline. "
