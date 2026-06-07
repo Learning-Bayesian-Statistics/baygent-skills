@@ -44,16 +44,13 @@ compiled backends (nutpie, JAX). Example:
 mamba install -c conda-forge pymc nutpie arviz arviz-stats preliz
 ```
 
-The repo ships two pinned environments: `environment.yml` (`baygent`, PyMC 5) and
-`environment-pymc6.yml` (`baygent6`, PyMC 6 + ArviZ 1.x) — see Stack compatibility below.
+See **Stack compatibility** below for the PyMC 5.x vs 6.x / ArviZ 0.23 vs 1.x notes.
 
 ## Stack compatibility (PyMC 5.x and 6.x)
 
 This skill teaches the **latest** PyMC 6 / ArviZ 1.x idioms and stays runnable on
 PyMC 5.x during the transition (regulated/corporate environments can't always
-upgrade freely). The reporting-harness smoke test and
-`evals/smoke/cross_env_equivalence.py` are run on **both** stacks — that dual run
-is the compatibility guarantee.
+upgrade freely). The scripts are verified on **both** stacks.
 
 Most code is identical across versions. Where an API genuinely diverges, prefer the
 form that runs on **both**:

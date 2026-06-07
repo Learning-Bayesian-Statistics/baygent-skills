@@ -55,9 +55,7 @@ mamba install -c conda-forge pymc nutpie arviz arviz-stats preliz
 ```
 
 The skill teaches the latest PyMC 6 / ArviZ 1.x idioms and stays runnable on PyMC 5.x
-during the transition. The repo ships two pinned environments — `environment.yml`
-(PyMC 5) and `environment-pymc6.yml` (PyMC 6 + ArviZ 1.x); the reporting-harness smoke
-test and `evals/smoke/cross_env_equivalence.py` are run on both. See SKILL.md →
+during the transition; its scripts are verified on both stacks. See SKILL.md →
 "Stack compatibility (PyMC 5.x and 6.x)" for the handful of APIs that diverge.
 
 ## Example prompts
