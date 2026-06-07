@@ -21,7 +21,7 @@ Guides your coding agent through the full Bayesian workflow:
 9. **Model comparison** (LOO-CV, ELPD, stacking weights)
 10. **Reporting** with a canonical `<slug>/report.md` artifact and audience-adapted prose
 
-The skill enforces guardrails that agents won't apply on their own: 94% HDI, mandatory calibration checks, prior/likelihood sensitivity checks, non-centered parameterizations for hierarchical models, reproducible descriptive seeds, immediate save-to-disk after sampling, xarray-first data manipulation, a NUTS sampling-failure escalation ladder, discrete-latent marginalization over soft plug-ins, and a canonical report artifact whose Assessment lines and Suggested Next Steps come from a programmatic harness — not hand-rolled prose.
+The skill enforces guardrails that agents won't apply on their own: credible intervals (a 94% HDI is a fine default — no width is magic), mandatory calibration checks, prior/likelihood sensitivity checks, non-centered parameterizations for hierarchical models, reproducible descriptive seeds, immediate save-to-disk after sampling, xarray-first data manipulation, a NUTS sampling-failure escalation ladder, discrete-latent marginalization over soft plug-ins, and a canonical report artifact whose Assessment lines and Suggested Next Steps come from a programmatic harness — not hand-rolled prose.
 
 ## Install
 
@@ -53,6 +53,12 @@ The skill recommends conda-forge / mamba-forge for PyMC and its dependencies:
 ```bash
 mamba install -c conda-forge pymc nutpie arviz arviz-stats preliz
 ```
+
+The skill teaches the latest PyMC 6 / ArviZ 1.x idioms and stays runnable on PyMC 5.x
+during the transition. The repo ships two pinned environments — `environment.yml`
+(PyMC 5) and `environment-pymc6.yml` (PyMC 6 + ArviZ 1.x); the reporting-harness smoke
+test and `evals/smoke/cross_env_equivalence.py` are run on both. See SKILL.md →
+"Stack compatibility (PyMC 5.x and 6.x)" for the handful of APIs that diverge.
 
 ## Example prompts
 

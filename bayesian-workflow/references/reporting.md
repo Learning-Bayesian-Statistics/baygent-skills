@@ -29,10 +29,10 @@ os.makedirs(results_dir, exist_ok=True)
 <slug>/
 ├── inference_data.nc            # full InferenceData (idata.to_netcdf)
 ├── model_graph.png              # pm.model_to_graphviz output
-├── prior_predictive.png         # az.plot_ppc(..., group="prior")
-├── trace.png                    # az.plot_trace(idata, kind="rank_vlines")
+├── prior_predictive.png         # azp.plot_ppc_dist(prior, group="prior_predictive")
+├── trace.png                    # az.plot_trace(idata)
 ├── forest.png                   # az.plot_forest of posteriors
-├── posterior_predictive.png     # az.plot_ppc(idata)
+├── posterior_predictive.png     # azp.plot_ppc_dist(idata)
 ├── pit_ecdf.png                 # azp.plot_ppc_pit (or loo_pit)
 ├── pit_coverage.png             # azp.plot_ppc_pit(coverage=True)
 ├── psense.png                   # azp.plot_psense_dist (if sensitivity ran)
@@ -49,22 +49,23 @@ Save figures using these exact names so the report template can reference them s
 
 ```python
 import arviz as az
+import arviz_plots as azp
 import matplotlib.pyplot as plt
 
-# Trace
-ax = az.plot_trace(idata, kind="rank_vlines")
+# Trace (both stacks; for a rank view use az.plot_rank(idata))
+az.plot_trace(idata)
 plt.gcf().savefig(os.path.join(results_dir, "trace.png"), dpi=150, bbox_inches="tight")
 plt.close()
 
 # Forest
-ax = az.plot_forest(idata, combined=True)
+az.plot_forest(idata, combined=True)
 plt.gcf().savefig(os.path.join(results_dir, "forest.png"), dpi=150, bbox_inches="tight")
 plt.close()
 
-# Posterior predictive
-ax = az.plot_ppc(idata)
-plt.gcf().savefig(os.path.join(results_dir, "posterior_predictive.png"), dpi=150, bbox_inches="tight")
-plt.close()
+# Posterior predictive — arviz_plots runs on both PyMC 5 and 6
+# (az.plot_ppc was removed from the ArviZ 1.x umbrella)
+pc = azp.plot_ppc_dist(idata)
+pc.savefig(os.path.join(results_dir, "posterior_predictive.png"))
 ```
 
 For ArviZ 1.0+ calibration plots (`arviz_plots.plot_ppc_pit`), use `pc.savefig(...)` directly — `scripts/calibration_check.py --save-plots --plot-dir <slug>` does this automatically with the right filenames.

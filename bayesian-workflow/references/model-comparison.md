@@ -45,7 +45,7 @@ az.plot_compare(comparison)
 ```
 
 **Reading the comparison table**:
-- `elpd_loo`: Higher is better (less negative = better predictive accuracy)
+- `elpd_loo` (ArviZ 1.x names this column `elpd`): Higher is better (less negative = better predictive accuracy)
 - `se`: Standard error of ELPD estimate
 - `elpd_diff`: Difference from best model
 - `dse`: Standard error of the difference

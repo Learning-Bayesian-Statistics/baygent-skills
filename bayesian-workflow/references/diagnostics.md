@@ -29,7 +29,7 @@ has_errors, diagnostics = azs.diagnose(idata, return_diagnostics=True, show_diag
 # diagnostics contains: "divergent", "treedepth", "bfmi", "ess", "rhat"
 
 # 3. Visual check
-az.plot_trace(idata, kind="rank_vlines")
+az.plot_trace(idata)
 ```
 
 If `azs.diagnose` is not available (arviz-stats < 1.0.0), fall back to the manual checks below.
@@ -118,7 +118,7 @@ If you reach rung 7 without resolution, the problem is usually identifiability, 
 
 ```python
 # Rank plots (preferred over raw trace plots)
-az.plot_trace(idata, kind="rank_vlines")
+az.plot_rank(idata)   # both stacks; ArviZ 0.23 alt: az.plot_trace(idata, kind="rank_vlines")
 
 # What to look for:
 # - Rank plots should look uniform (no spikes or gaps)

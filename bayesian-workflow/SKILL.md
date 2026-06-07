@@ -15,7 +15,7 @@ description: >
 license: MIT
 metadata:
   author: [Alexandre Andorra](https://alexandorra.github.io/)
-  version: "1.4"
+  version: "1.5"
 ---
 
 # Bayesian Workflow
@@ -43,6 +43,35 @@ compiled backends (nutpie, JAX). Example:
 ```bash
 mamba install -c conda-forge pymc nutpie arviz arviz-stats preliz
 ```
+
+The repo ships two pinned environments: `environment.yml` (`baygent`, PyMC 5) and
+`environment-pymc6.yml` (`baygent6`, PyMC 6 + ArviZ 1.x) — see Stack compatibility below.
+
+## Stack compatibility (PyMC 5.x and 6.x)
+
+This skill teaches the **latest** PyMC 6 / ArviZ 1.x idioms and stays runnable on
+PyMC 5.x during the transition (regulated/corporate environments can't always
+upgrade freely). The reporting-harness smoke test and
+`evals/smoke/cross_env_equivalence.py` are run on **both** stacks — that dual run
+is the compatibility guarantee.
+
+Most code is identical across versions. Where an API genuinely diverges, prefer the
+form that runs on **both**:
+
+| Task | Modern (PyMC 6 / ArviZ 1.x) — also runs on PyMC 5 where noted | Legacy (PyMC 5 / ArviZ 0.23) |
+|---|---|---|
+| Posterior-predictive plot | `arviz_plots.plot_ppc_dist(idata)` (runs on both) | `az.plot_ppc(idata)` (removed in ArviZ 1.x) |
+| Trace / rank plot | `az.plot_trace(idata)` (both); rank view `az.plot_rank(idata)` (both) or `arviz_plots.plot_trace_dist(idata)` | `az.plot_trace(idata, kind="rank_vlines")` (the `kind=` arg is 0.23-only) |
+| Prior-predictive draws | `pm.sample_prior_predictive(draws=500)` (runs on both) | `samples=500` (removed in PyMC 6) |
+| Summary interval | `az.summary(idata, ci_prob=0.94, ci_kind="hdi")` | `az.summary(idata, hdi_prob=0.94)` |
+| Sampler output type | `DataTree` | `InferenceData` |
+
+`arviz_plots` (the ArviZ 1.x plotting package, imported as `azp`) installs on **both**
+stacks, so leading with `azp.*` plots is the most portable choice. Bare `az.summary(idata)`
+works on both but the default interval differs (ArviZ 1.x: 89% ETI; ArviZ 0.23: 94% HDI) —
+pass the kwargs above to pin it. `arviz_stats.diagnose`, `az.loo`, `az.plot_forest/energy/pair/khat`,
+and `idata.to_netcdf()` are unchanged on both; `InferenceData` and `DataTree` are both
+xarray-backed, so downstream `.sel()` / `az.*` calls are identical.
 
 ## PyMC model template
 
@@ -92,8 +121,8 @@ with pm.Model(coords=coords) as model:
 - **Always run posterior predictive checks**. A model that fits well numerically but cannot reproduce the data is useless.
 - **Always run calibration checks** (PIT / coverage). Use ArviZ's `plot_ppc_pit` for this — it handles all data types (continuous, binary, count) correctly. See [references/model-criticism.md](references/model-criticism.md).
 - **Document every prior choice** with a brief justification in a code comment.
-- **Never report point estimates alone**. Always include credible intervals (default: 94% HDI).
-- **Use `arviz_stats.diagnose(idata)` as the first diagnostic on every model** (arviz-stats >= 1.0.0). It checks R-hat, ESS, divergences, tree depth saturation, and E-BFMI in one call. Follow up with `az.plot_trace(idata, kind="rank_vlines")` for visual inspection.
+- **Never report point estimates alone**. Always include credible intervals — a 94% HDI is a fine default, but no interval width is magic (see [references/reporting.md](references/reporting.md)).
+- **Use `arviz_stats.diagnose(idata)` as the first diagnostic on every model** (arviz-stats >= 1.0.0). It checks R-hat, ESS, divergences, tree depth saturation, and E-BFMI in one call. Follow up with `az.plot_trace(idata)` for visual inspection (both stacks); for rank-based convergence views use `az.plot_rank(idata)` — the older `az.plot_trace(idata, kind="rank_vlines")` is ArviZ-0.23-only.
 - **Don't hardcode number of chains.** Let PyMC / nutpie choose the optimal default for the user's platform. Just call `pm.sample()` without specifying `chains`.
 - **Use reproducible, descriptive seeds.** Never use magic numbers like `42`. Instead, derive a seed from the analysis name: `RANDOM_SEED = sum(map(ord, "my-analysis-name"))`. Pass it to `pm.sample(random_seed=rng)`, `pm.sample_prior_predictive(random_seed=rng)`, and numpy via `rng = np.random.default_rng(RANDOM_SEED)`.
 - **Save InferenceData immediately after sampling** with `idata.to_netcdf("model_output.nc")`. Late crashes or kernel restarts can destroy valid MCMC results — save before any post-processing.
