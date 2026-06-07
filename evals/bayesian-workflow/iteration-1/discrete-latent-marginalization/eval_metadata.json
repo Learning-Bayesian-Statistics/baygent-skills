@@ -1,0 +1,14 @@
+{
+  "eval_id": 8,
+  "eval_name": "discrete-latent-marginalization",
+  "prompt": "I'm modeling reaction times that I think come from two latent cognitive states (a fast state and a slow state), with a per-trial indicator for which state generated each observation. My first attempt put a Bernoulli latent on every trial and used pm.math.switch to pick the rate, then sampled with nutpie — but sampling is a mess and barely moves. How should I structure this model in PyMC?",
+  "assertions": [
+    "Identifies that NUTS / nutpie cannot sample discrete (Bernoulli/Categorical) latent variables",
+    "Recommends marginalizing the discrete latent analytically — e.g. a mixture likelihood (pm.Mixture / pm.NormalMixture) or pmx.marginalize — instead of sampling per-trial indicators",
+    "Explains that a soft/relaxed plug-in (using E[z], a softmax, or a continuous relaxation in place of the discrete draw) is not the correct marginal and is mathematically wrong",
+    "Notes the mixture needs an identification/ordering constraint (e.g. an ordered transform on the component means) to avoid label-switching",
+    "Provides concrete PyMC code using a marginalized mixture rather than discrete indicators",
+    "Does not present sampling the discrete indicators directly with nutpie as the recommended solution",
+    "Recommends re-checking convergence (R-hat, ESS, divergences) after the refactor"
+  ]
+}

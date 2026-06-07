@@ -122,6 +122,27 @@ When treatment is staggered (units adopt treatment at different times), the stan
 
 ## Synthetic Control refutation recipes
 
+### Donor support (positivity / convex hull)
+
+Check this *first*. A synthetic control weights donors with non-negative weights that sum to one, so the synthetic unit is a **convex combination** of donors: its pre-treatment vector lies in the donor **convex hull**, and SC cannot represent a treated unit outside that hull — it interpolates, never extrapolates. If the treated unit is more extreme than the donors can span, the fit is forced to the hull boundary and the post-treatment "gap" is partly an artifact of poor support, not a treatment effect.
+
+```python
+# Cheap PRE-SCREEN: is the treated unit inside the donor min–max band each period?
+pre = df[df["time"] < treatment_time]
+# SC assumes a single treated unit; this reports the fraction per treated unit.
+treated_pre = pre[pre["unit"].isin(treated_units)].pivot(index="time", columns="unit", values="outcome")
+donor_pre = pre[pre["unit"].isin(control_units)].pivot(index="time", columns="unit", values="outcome")
+
+lo, hi = donor_pre.min(axis=1), donor_pre.max(axis=1)
+outside = (treated_pre.lt(lo, axis=0) | treated_pre.gt(hi, axis=0)).mean()  # per treated unit
+print(outside.to_string())  # fraction of pre-periods outside the donor envelope
+
+# FAIL (outside > 0) is informative: the treated unit breaches the donor range → support problem.
+# PASS (outside ≈ 0) is NOT sufficient — see the caveat below.
+```
+
+**A FAIL is informative; a PASS is not.** The per-period min–max envelope is only a *necessary* condition for hull membership, checked marginally one period at a time, so it is a **loose, anti-conservative screen** — it under-detects support failures. A unit can stay inside the band at *every* period yet lie outside the *joint* convex hull: donors `(0, 10)` and `(10, 0)` bracket a treated `(0, 0)` in each period, yet no convex weighting reproduces it (every convex combination has the two coordinates summing to 10). For a rigorous check, test hull membership directly — solve the simplex-constrained fit `min ‖x_treated − W·x_donors‖` s.t. `w ≥ 0, Σw = 1` and confirm the residual is ≈ 0 (or an LP / `scipy.spatial` feasibility test) — and use the envelope only as a cheap pre-screen. If support genuinely fails: add donors that bracket the treated unit, restrict the pre-period to where support holds, or switch to a method that *models* the trend (e.g. a Bayesian structural time series) rather than reweighting donors. (This is **support / positivity** — distinct from, and looser than, literal convex-hull membership.)
+
 ### Leave-one-out donors
 
 Re-fit the synthetic control model removing each donor unit one at a time. If the post-treatment trajectory changes dramatically when any single donor is removed, the result is fragile and dependent on that one unit.
@@ -366,6 +387,31 @@ ITS is especially vulnerable to events that happened at the same time as the tre
 > **Ask the user:** "Did anything else change at or near the treatment time that could explain the observed trend change? Examples: a policy change elsewhere, a market shock, a shift in data collection practices, a simultaneous intervention on a related variable."
 
 If the user identifies a potential confound, either (a) control for it by adding it to the model, (b) collect data on a control unit that experienced the confound but not the treatment (converting ITS to DiD), or (c) downgrade the causal claim.
+
+### Effect persistence (temporary interventions)
+
+Not every intervention is a permanent level shift. If the treatment was temporary (a one-off campaign, a time-boxed policy, a transient shock), a model that assumes a permanent step mis-estimates the effect — it smears a short-lived bump across the whole post-period, or misreads a decaying effect as a sustained one. Pass the intervention's end so the counterfactual can revert to baseline, and inspect whether the post-treatment effect **persists or decays**.
+
+```python
+result = cp.InterruptedTimeSeries(
+    data=df,
+    treatment_time=treatment_time,
+    treatment_end_time=treatment_end_time,  # counterfactual reverts to the pre-trend after this
+    formula="y ~ 1 + t",
+    model=cp.pymc_models.LinearRegression(sample_kwargs={"random_seed": rng, "nuts_sampler": "nutpie"}),
+)
+result.plot()  # actual vs counterfactual, with the campaign window shaded
+
+# CausalPy computes the persistence ratio directly = post-period effect / during-period effect:
+p = result.analyze_persistence(direction="two-sided")
+# persistence_ratio: ~1 = effect held, 0-1 = decayed, ~0 = vanished, negative = rebounded.
+# Guard: a ratio built on a near-zero during-period effect is unstable — check the
+# during-period effect is distinguishable from zero before interpreting the ratio.
+```
+
+**This is a functional-form / specification check, not an identification refutation.** It asks whether your *assumed effect shape* (permanent step vs. temporary pulse) matches the data; it says nothing about confounding — which is what actually breaks ITS, so keep the placebo-time and concurrent-event checks for that. Note too that after `treatment_end_time` CausalPy reverts the counterfactual to the **extrapolated pre-treatment trend**, so any persistence/decay read-off inherits the assumption — stronger the longer the post-window — that the pre-period trend remains the valid counterfactual throughout. State it.
+
+If the assumed shape matches the data (a sustained shift stays elevated; a temporary one returns toward baseline), the specification is adequate. If you assumed a permanent shift but the effect clearly decays, re-specify the dynamics and report the effect as transient — but observed decay is evidence against the effect's *permanence*, not against its *existence*.
 
 ---
 

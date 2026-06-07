@@ -19,9 +19,9 @@ Guides your coding agent through the full Bayesian workflow:
 7. **Model criticism** (posterior predictive checks, LOO-PIT calibration)
 8. **Prior/likelihood sensitivity** (power-scaling via PSIS)
 9. **Model comparison** (LOO-CV, ELPD, stacking weights)
-10. **Reporting** with companion analysis notes and audience-adapted reports
+10. **Reporting** with a canonical `<slug>/report.md` artifact and audience-adapted prose
 
-The skill enforces guardrails that agents won't apply on their own: 94% HDI, mandatory calibration checks, prior/likelihood sensitivity checks, non-centered parameterizations for hierarchical models, reproducible descriptive seeds, immediate save-to-disk after sampling, and xarray-first data manipulation.
+The skill enforces guardrails that agents won't apply on their own: 94% HDI, mandatory calibration checks, prior/likelihood sensitivity checks, non-centered parameterizations for hierarchical models, reproducible descriptive seeds, immediate save-to-disk after sampling, xarray-first data manipulation, a NUTS sampling-failure escalation ladder, discrete-latent marginalization over soft plug-ins, and a canonical report artifact whose Assessment lines and Suggested Next Steps come from a programmatic harness — not hand-rolled prose.
 
 ## Install
 
@@ -80,8 +80,9 @@ bayesian-workflow/
 │   ├── sensitivity.md                # Prior/likelihood sensitivity analysis (power-scaling)
 │   └── reporting.md                  # Report templates, audience adaptation
 └── scripts/
-    ├── diagnose_model.py             # Post-sampling diagnostics report
-    └── calibration_check.py          # Calibration plots from InferenceData
+    ├── diagnose_model.py             # Post-sampling diagnostics report (writes diagnostics.json)
+    ├── calibration_check.py          # Calibration plots from InferenceData (writes calibration.json)
+    └── check_diagnostics.py          # Interprets diagnostics + calibration into qualitative ratings + suggested next steps
 ```
 
 ## License
