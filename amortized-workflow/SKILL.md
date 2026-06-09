@@ -13,7 +13,7 @@ metadata:
   author:
     - [Stefan T. Radev](https://bayesops.com)
     - [Alexandre Andorra](https://alexandorra.github.io/)
-  version: "1.0"
+  version: "2.0"
 ---
 
 # Amortized Bayesian Workflow

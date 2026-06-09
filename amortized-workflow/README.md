@@ -64,7 +64,7 @@ Once installed, just ask your agent naturally:
 | Data structure | Summary network | Route through |
 |---|---|---|
 | N i.i.d. observations (most common) | `SetTransformer` | `summary_variables` |
-| Time series / ordered sequences | `TimeSeriesTransformer` | `summary_variables` |
+| Time series / ordered sequences | `TimeSeriesNetwork` / `TimeSeriesTransformer` / `FusionTransformer` | `summary_variables` |
 | Images as observations (target is low-dim) | `ConvolutionalNetwork` | `summary_variables` |
 | Images as targets (denoising, generation) | None — use `DiffusionModel(subnet=UNet)` | `inference_conditions` |
 | Single fixed-length vector | None | `inference_conditions` |
