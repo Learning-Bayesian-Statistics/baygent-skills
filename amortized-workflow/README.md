@@ -1,6 +1,6 @@
 # amortized-workflow
 
-An opinionated [Agent Skill](https://agentskills.io) for [amortized Bayesian inference](https://learnbayesstats.com/episode/amortized-bayesian-inference-deep-neural-networks-bayesflow-marvin-schmitt) using [BayesFlow](https://bayesflow.org/v2.0.8/index.html) for simulation-based inference (SBI).
+An opinionated [Agent Skill](https://agentskills.io) for [amortized Bayesian inference](https://learnbayesstats.com/episode/amortized-bayesian-inference-deep-neural-networks-bayesflow-marvin-schmitt) using [BayesFlow](https://bayesflow.org/v2.0.8/index.html) for simulation-based inference (SBI). [Full breakdown](https://learnbayesstats.com/blog-posts/amortized-bayesian-inference-agent-skill-bayesflow).
 
 Compatible with Claude Code, Kimi Code, Cursor, Gemini CLI, and any agent that supports the [Agent Skills spec](https://agentskills.io/specification).
 
