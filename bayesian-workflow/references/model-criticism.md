@@ -85,7 +85,7 @@ import arviz_plots as azp
 azp.plot_ppc_pit(idata)
 
 # LOO-PIT: leave-one-out calibration (more robust, preferred when LOO is available)
-azp.plot_ppc_pit(idata, loo_pit=True)
+azp.plot_loo_pit(idata)
 ```
 
 Refer to [this guide](https://arviz-devs.github.io/EABM/Chapters/Prior_posterior_predictive_checks.html#coverage) for detailed coverage interpretation — it's a treasure trove for the whole Bayesian workflow.

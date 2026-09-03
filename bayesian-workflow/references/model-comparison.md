@@ -53,9 +53,15 @@ az.plot_compare(comparison)
 - `warning`: True if high Pareto k values exist
 
 **Interpreting differences**:
-- If `elpd_diff` < 2×`dse` → Models are practically indistinguishable. Prefer the simpler one.
-- If `elpd_diff` > 4×`dse` → Strong evidence for the better model.
-- Between 2–4×`dse` → Moderate evidence. Consider domain knowledge.
+- Report `elpd_diff` together with `dse` (its standard error): the difference is only as trustworthy
+  as it is large relative to that error. A difference much smaller than its `dse` is not evidence
+  either way.
+- Do **not** reduce the decision to a fixed threshold on `elpd_diff / dse`. ELPD is one input among
+  several: read it alongside the posterior predictive checks, calibration/coverage, and what the
+  models imply for the quantity you actually care about. Cross-validation summarises predictive fit
+  under an M-closed reading and does not, on its own, tell you a model is *true*.
+- When two models are close on ELPD, prefer the one that is simpler, better calibrated, or more
+  defensible on domain grounds — and say which criterion decided it.
 
 ## Stacking weights
 
