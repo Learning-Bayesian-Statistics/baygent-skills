@@ -11,8 +11,8 @@ description: >
 license: MIT
 metadata:
   author:
-    - [Stefan T. Radev](https://bayesops.com)
-    - [Alexandre Andorra](https://alexandorra.github.io/)
+    - "[Stefan T. Radev](https://bayesops.com)"
+    - "[Alexandre Andorra](https://alexandorra.github.io/)"
   version: "2.0"
 ---
 
